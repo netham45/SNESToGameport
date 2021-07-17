@@ -21,7 +21,7 @@ void profileSave(uint8_t newProfileIndex) {
 		struct rebindEntry *newProfile = getDataProfileOffset(newProfileIndex); //Pointer to new profile
 		memcpy(newProfile, currentProfile, PROFILE_SIZE); //Save current profile to new slot
 		memcpy(currentProfile,getFlashProfileOffset(currentProfileIndex),
-				PROFILE_SIZE); //Reload current profile from flash so it isn't overwritten
+				PROFILE_SIZE); //Reload current profile from flash so it isn't overwritten on save
 		currentProfile = newProfile; //Point rebind to the new profile
 		currentProfileIndex = newProfileIndex; //Update selected profile number
 	}
@@ -75,7 +75,7 @@ void bindCycleRapidFire(struct rebindEntry *entry) {
 //End Rebinds
 
 //Set pins to default state (axis centered, no buttons pressed)
-void bindGPIODefaultState() {
+void buttonsGPIODefaultState() {
 	HAL_GPIO_WritePin(X1_Center_GPIO_Port, X1_Center_Pin, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(Y1_Center_GPIO_Port, Y1_Center_Pin, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(X2_Center_GPIO_Port, X2_Center_Pin, GPIO_PIN_SET);

@@ -9,7 +9,7 @@ void snesMain(I2C_HandleTypeDef *hi2c, TIM_HandleTypeDef *htimdelayus) {
 
 	snesSetDelayuSTimer(htimdelayus); //Init delayuS timer for snes controller polling
 	lcdInit(hi2c, (uint8_t) 0x27, (uint8_t) 20, (uint8_t) 4); //Init LCD
-	bindGPIODefaultState(); //Init GPIO
+	buttonsGPIODefaultState(); //Init GPIO
 	profileSelect(0); //Load profile 0
 	menuInit(); //Register menu entries
 	

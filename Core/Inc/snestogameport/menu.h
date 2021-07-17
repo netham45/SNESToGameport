@@ -3,9 +3,9 @@
 #include <main.h>
 
 #define MAX_MENU_ITEMS  32
-#define MAX_MENU_NAME_LEN  16 //Menu indicator + 15 + terminator
+#define MAX_MENU_NAME_LEN  16 //1 char less than screen width so menu indicator can be sprinted before it
 #define MAX_MENU_HELP_LEN 64
-#define MENU_ELEMENTS 4
+//#define MENU_ELEMENTS 4
 struct menuEntry {
 	char name[MAX_MENU_NAME_LEN];
 	char help[MAX_MENU_HELP_LEN];

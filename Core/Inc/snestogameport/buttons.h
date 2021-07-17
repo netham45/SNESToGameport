@@ -36,7 +36,7 @@ void bindKey(uint16_t buttonsPressed, uint16_t buttonsToPress,
 		uint8_t rapidFire);
 void bindClearAll();
 void bindCycleRapidFire(struct rebindEntry *entry);
-void bindGPIODefaultState();
+void buttonsGPIODefaultState();
 void bindProcess(uint16_t *buttons);
 void buttonsProcess(uint16_t buttons);
 void buttonsToString(char *stringBuffer, uint16_t buttons, char *prefix);

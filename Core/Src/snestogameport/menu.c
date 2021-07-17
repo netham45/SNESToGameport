@@ -2,40 +2,23 @@
 #include <snestogameport/screen.h>
 #include <snestogameport/buttons.h>
 
-uint8_t menuNumEntries = 0;
-uint8_t menuActive = 0;
+uint8_t menuNumEntries = 0; //Number of menu entries
+uint8_t menuActive = 0; //Is the menu active
+
+uint32_t menuLastButtonsPressedTime = 0; //Time since buttons pressed changed
+uint16_t menuLastButtonsPressed = 0; //Last buttons pressed
 
 void *menuActiveSubmenuCallback = 0; //Pointer to submenu callback, 0 if not in a submenu
-//void (uint16_t buttons, uint32_t buttonHoldTime, uint8_t buttonsChanged, uint8_t firstRun)
+//void (uint16_t buttons, uint32_t buttonsHoldTime, uint8_t buttonsChanged, uint8_t firstRun)
 //buttons == held buttons
-//buttonHoldTime == length buttons have been held in ms
+//buttonsHoldTime == length buttons have been held in ms
 //buttonsChanged == flag if the buttons changed this tick
 //firstRun == bool first loop after the menu was called
 
-uint32_t menuLastButtonsPressedTime = 0;
-uint16_t menuLastButtonsPressed = 0;
 
-//Registers a menu entry's name, help message, and callback function
-void menuInitMenuEntry(char *name, char *help, void *callback) {
-	strcpy(menuItems[menuNumEntries].name, name);
-	strcpy(menuItems[menuNumEntries].help, help);
-	menuItems[menuNumEntries].callback = callback;
-	menuNumEntries++;
-}
-
-//Hide menu, clearMessage to clear the screen immediately, otherwise leave the screen alone
-void menuDeactivate(uint8_t _clearMessage) {
-	menuActive = 0;
-	if (_clearMessage)
-		screenClear();
-	menuActiveSubmenuCallback = 0;
-}
-
-//Show the menu
-void menuActivate() {
-	menuActive = 1;
-	menuActiveSubmenuCallback = 0;
-}
+//Begin submenu callbacks
+//Submenu callbacks basically have a render phase where they draw to the screen and a process phase where they process input.
+//These aren't defined in the header.
 
 //Main Menu variables
 uint8_t mainMenuTopSelected = 1;
@@ -44,133 +27,95 @@ int mainMenuHelpIndex = 0;
 uint32_t mainMenuHelpLastTick = 0;
 uint8_t mainMenuCurrentMenuIndex = 0;
 
-//Main Menu
-int menuProcess(uint16_t buttons) {
+void menuMainMenu(uint16_t buttons, uint32_t buttonsHoldTime,
+		uint8_t buttonsChanged, uint8_t firstRun)
+{
+	//Render menu
+	if (mainMenuCurrentMenuIndex == 0)
+		mainMenuTopSelected = 1; //Top entry means top is selected
+	if (mainMenuCurrentMenuIndex == menuNumEntries - 1)
+		mainMenuTopSelected = 0; //Bottom entry means bottom is selected
 
-	uint8_t buttonsChanged = 0;
+	uint8_t otherOptionPosition = mainMenuCurrentMenuIndex
+			+ (mainMenuTopSelected ? 1 : -1);
+	struct menuEntry *currentOption = &menuItems[mainMenuCurrentMenuIndex];
+	struct menuEntry *otherOption = &menuItems[otherOptionPosition];
 
-	if (menuLastButtonsPressed != buttons) //Check if buttons have changed, if so reset the held timer and set the changed flag
+	char currentOptionLine[SCREEN_CSTR_WIDTH]; //Current menu entry pointed to by menuPos
+	char otherLine[SCREEN_CSTR_WIDTH]; //Also holds help messages
+
+	sprintf(currentOptionLine, ">%s", currentOption->name);
+
+	if (buttonsHoldTime > 2000 && buttons == 0) //Show Help
 			{
-		menuLastButtonsPressedTime = HAL_GetTick();
-		menuLastButtonsPressed = buttons;
-		buttonsChanged = 1;
-	}
+		memset(otherLine, 0x20, sizeof(otherLine));
 
-	uint32_t buttonsHoldTime = HAL_GetTick() - menuLastButtonsPressedTime; //How long the button has been held
+		if (!mainMenuHelpLastTick)
+			mainMenuHelpLastTick = HAL_GetTick();
 
-	if (buttons == (BUTTON_START | BUTTON_SELECT) && buttonsHoldTime > 1000) //If the menu isn't active and START+SELECT are held alone for 1s open it
-			{
-		menuActivate();
-	}
-
-	if (!menuActive) {
-		return 0; //  0 for continue to press buttons on the PC
-	}
-
-	screenResetClearTimer(); //Clear any timers to turn the screen off
-
-	if (menuActiveSubmenuCallback) //Call a submenu
-	{
-		void (*callback)(uint16_t buttons, uint32_t buttonsHoldTime,
-				uint8_t buttonsChanged, uint8_t firstRun) = menuActiveSubmenuCallback;
-		callback(buttons, buttonsHoldTime, buttonsChanged,
-				mainMenuSubmenuFirstRun);
-		mainMenuSubmenuFirstRun = 0;
-	} else //Render the menu, check the keys
-	{
-
-		//Render menu
-		if (mainMenuCurrentMenuIndex == 0)
-			mainMenuTopSelected = 1; //Top entry means top is selected
-		if (mainMenuCurrentMenuIndex == menuNumEntries - 1)
-			mainMenuTopSelected = 0; //Bottom entry means bottom is selected
-
-		uint8_t otherOptionPosition = mainMenuCurrentMenuIndex
-				+ (mainMenuTopSelected ? 1 : -1);
-		struct menuEntry *currentOption = &menuItems[mainMenuCurrentMenuIndex];
-		struct menuEntry *otherOption = &menuItems[otherOptionPosition];
-
-		char currentOptionBuffer[17]; //Current menu entry pointed to by menuPos
-		char otherLineBuffer[17]; //Also holds help messages
-
-		sprintf(currentOptionBuffer, ">%s", currentOption->name);
-
-		if (buttonsHoldTime > 2000 && buttons == 0) //Show Help
+		uint32_t helpLastScrolled = HAL_GetTick() - mainMenuHelpLastTick;
+		if (helpLastScrolled > 350) //Tick help another char every 350ms, it's slow but any faster the LCD blurs
 				{
-			memset(otherLineBuffer, 0x20, sizeof(otherLineBuffer));
-
-			if (!mainMenuHelpLastTick)
-				mainMenuHelpLastTick = HAL_GetTick();
-
-			uint32_t helpLastScrolled = HAL_GetTick() - mainMenuHelpLastTick;
-			if (helpLastScrolled > 350) //Tick help another char every 350ms, it's slow but any faster the LCD blurs
-					{
-				mainMenuHelpLastTick = HAL_GetTick();
-				mainMenuHelpIndex += 1;
-				if (mainMenuHelpIndex > strlen(currentOption->help))
-					mainMenuHelpIndex = -16;
-			}
-
-			if (mainMenuHelpIndex < 0) //If it's negative it means it's scrolling in
-					{
-				memset(otherLineBuffer, 0x20, 0 - mainMenuHelpIndex);
-				memcpy(otherLineBuffer + (0 - mainMenuHelpIndex),
-						currentOption->help, 16 + mainMenuHelpIndex);
-			} else
-				memcpy(otherLineBuffer, currentOption->help + mainMenuHelpIndex,
-						16);
-			otherLineBuffer[16] = 0;
-		} else //Show the other option
-		{
-			strcpy(otherLineBuffer, otherOption->name);
-			mainMenuHelpIndex = 0;
+			mainMenuHelpLastTick = HAL_GetTick();
+			mainMenuHelpIndex += 1;
+			if (mainMenuHelpIndex > strlen(currentOption->help))
+				mainMenuHelpIndex = -16;
 		}
 
-		if (mainMenuTopSelected) {
-			screenWriteTopLine(currentOptionBuffer);
-			screenWriteBottomLine(otherLineBuffer);
-		} else {
-			screenWriteTopLine(otherLineBuffer);
-			screenWriteBottomLine(currentOptionBuffer);
-		}
-
-		//End Render Menu
-
-		//Process Buttons
-		if (buttonsChanged) {
-			if (buttons & BUTTON_UP) //Scroll up menu
-			{
-				if (mainMenuCurrentMenuIndex > 0) {
-					mainMenuCurrentMenuIndex--;
-					mainMenuTopSelected = 1;
-				}
-			} else if (buttons & BUTTON_DOWN) //Scroll down menu
-			{
-				if (mainMenuCurrentMenuIndex < menuNumEntries - 1) {
-					mainMenuCurrentMenuIndex++;
-					mainMenuTopSelected = 0;
-				}
-			} else if (buttons & BUTTON_A) //Select an option
-			{
-				menuActiveSubmenuCallback = menuItems[mainMenuCurrentMenuIndex].callback;
-				mainMenuSubmenuFirstRun = 1;
-			} else if (buttons & BUTTON_B) //Close menu
-			{
-				menuDeactivate(1);
-			}
-		}
+		if (mainMenuHelpIndex < 0) //If it's negative it means it's scrolling in
+				{
+			memset(otherLine, 0x20, 0 - mainMenuHelpIndex);
+			memcpy(otherLine + (0 - mainMenuHelpIndex),
+					currentOption->help, 16 + mainMenuHelpIndex);
+		} else
+			memcpy(otherLine, currentOption->help + mainMenuHelpIndex,
+					16);
+		otherLine[16] = 0;
+	} else //Show the other option
+	{
+		strcpy(otherLine, otherOption->name);
+		mainMenuHelpIndex = 0;
 	}
 
-	return 1; //1 for don't continue
+	if (mainMenuTopSelected) {
+		screenWriteTopLine(currentOptionLine);
+		screenWriteBottomLine(otherLine);
+	} else {
+		screenWriteTopLine(otherLine);
+		screenWriteBottomLine(currentOptionLine);
+	}
+
+	//End Render Menu
+
+	//Process Buttons
+	if (buttonsChanged) {
+		if (buttons & BUTTON_UP) //Scroll up menu
+		{
+			if (mainMenuCurrentMenuIndex > 0) {
+				mainMenuCurrentMenuIndex--;
+				mainMenuTopSelected = 1;
+			}
+		} else if (buttons & BUTTON_DOWN) //Scroll down menu
+		{
+			if (mainMenuCurrentMenuIndex < menuNumEntries - 1) {
+				mainMenuCurrentMenuIndex++;
+				mainMenuTopSelected = 0;
+			}
+		} else if (buttons & BUTTON_A) //Select an option
+		{
+			menuActiveSubmenuCallback = menuItems[mainMenuCurrentMenuIndex].callback;
+			mainMenuSubmenuFirstRun = 1;
+		} else if (buttons & BUTTON_B) //Close menu
+		{
+			menuDeactivate(1);
+		}
+	}
 }
 
-//Begin submenu callbacks
-//Submenu callbacks basically have a render phase where they draw to the screen and a process phase where they process input.
-//These aren't defined in the header.
 uint16_t menuRebindKeyFirstKey = 0;
 uint16_t menuRebindKeyFirstKeyReleased = 0;
 
-void menuRebindKeys(uint16_t buttons, uint32_t buttonHoldTime,
+void menuRebindKeys(uint16_t buttons, uint32_t buttonsHoldTime,
 		uint8_t buttonsChanged, uint8_t firstRun) {
 
 	//Process Buttons
@@ -183,7 +128,7 @@ void menuRebindKeys(uint16_t buttons, uint32_t buttonHoldTime,
 		menuRebindKeyFirstKeyReleased = 1;
 	}
 
-	if (buttonHoldTime > 1000 && buttons) //Wait for a button combo to be held for 1s before registering it
+	if (buttonsHoldTime > 1000 && buttons) //Wait for a button combo to be held for 1s before registering it
 			{
 		if (!menuRebindKeyFirstKey) //If the first key hasn't been chosen yet mark it and set a flag to ignore keys until the input changes
 		{
@@ -191,9 +136,9 @@ void menuRebindKeys(uint16_t buttons, uint32_t buttonHoldTime,
 			menuRebindKeyFirstKeyReleased = 0;
 		} else if (menuRebindKeyFirstKeyReleased) //The first key was pressed and released, take the second and save the binding
 		{
-			char bottomLineBuffer[17];
-			buttonsToString(bottomLineBuffer, buttons, "\xA5");
-			screenWriteBottomLine(bottomLineBuffer);
+			char bottomLine[SCREEN_CSTR_WIDTH];
+			buttonsToString(bottomLine, buttons, "\xA5");
+			screenWriteBottomLine(bottomLine);
 			bindKey(menuRebindKeyFirstKey, buttons, 0);
 			screenWriteTopLine("Binding Saved");
 			screenWriteBottomLine("");
@@ -204,29 +149,29 @@ void menuRebindKeys(uint16_t buttons, uint32_t buttonHoldTime,
 	}
 
 	//Render
-	char topLineBuffer[17];
-	char bottomLineBuffer[17];
+	char topLine[SCREEN_CSTR_WIDTH];
+	char bottomLine[SCREEN_CSTR_WIDTH];
 	if (!menuRebindKeyFirstKey) //If the first key isn't known yet
 	{
-		buttonsToString(topLineBuffer, buttons, "\x7F");
-		strcpy(bottomLineBuffer, "Hold Input Btns");
+		buttonsToString(topLine, buttons, "\x7F");
+		strcpy(bottomLine, "Hold Input Btns");
 	} else {
-		buttonsToString(topLineBuffer, menuRebindKeyFirstKey, "\xA5");
+		buttonsToString(topLine, menuRebindKeyFirstKey, "\xA5");
 		if (buttons && menuRebindKeyFirstKeyReleased) {
-			buttonsToString(bottomLineBuffer, buttons, "\x7E");
+			buttonsToString(bottomLine, buttons, "\x7E");
 		} else {
-			strcpy(bottomLineBuffer, "Hold Output Btns");
+			strcpy(bottomLine, "Hold Output Btns");
 		}
 	}
-	screenWriteTopLine(topLineBuffer);
-	screenWriteBottomLine(bottomLineBuffer);
+	screenWriteTopLine(topLine);
+	screenWriteBottomLine(bottomLine);
 }
 
 //View binds/set rapid fire
 uint8_t menuViewEditBindsIndex = 0;
 uint8_t menuViewEditBindsCyclingRapidFire = 0;
 
-void menuViewEditBinds(uint16_t buttons, uint32_t buttonHoldTime,
+void menuViewEditBinds(uint16_t buttons, uint32_t buttonsHoldTime,
 		uint8_t buttonsChanged, uint8_t firstRun) {
 	if (firstRun) {
 		menuViewEditBindsIndex = 0;
@@ -243,25 +188,25 @@ void menuViewEditBinds(uint16_t buttons, uint32_t buttonHoldTime,
 
 	//Render
 	struct rebindEntry *bind = &currentProfile[menuViewEditBindsIndex];
-	char topLineBuffer[17];
-	char bottomLineBuffer[17];
+	char topLine[SCREEN_CSTR_WIDTH];
+	char bottomLine[SCREEN_CSTR_WIDTH];
 	if (!menuViewEditBindsCyclingRapidFire) //If not showing rapid fire
 	{
-		buttonsToString(topLineBuffer, bind->buttonsPressed, "\x7F");
-		buttonsToString(bottomLineBuffer, bind->buttonsToPress, "\x7E");
+		buttonsToString(topLine, bind->buttonsPressed, "\x7F");
+		buttonsToString(bottomLine, bind->buttonsToPress, "\x7E");
 	} else {
-		strcpy(topLineBuffer, "Rapid Fire:");
+		strcpy(topLine, "Rapid Fire:");
 		if (bind->rapidFire)
-			sprintf(bottomLineBuffer, "%ims", bind->rapidFire * RAPID_FIRE_BASE_TIME);
+			sprintf(bottomLine, "%ims", bind->rapidFire * RAPID_FIRE_BASE_TIME);
 		else
-			strcpy(bottomLineBuffer, "Off");
+			strcpy(bottomLine, "Off");
 	}
-	screenWriteTopLine(topLineBuffer);
-	screenWriteBottomLine(bottomLineBuffer);
+	screenWriteTopLine(topLine);
+	screenWriteBottomLine(bottomLine);
 
 	//Process Buttons
 	if (menuViewEditBindsCyclingRapidFire && !(buttons & BUTTON_SELECT)
-			&& (buttons || buttonHoldTime > 1000)) {
+			&& (buttons || buttonsHoldTime > 1000)) {
 		menuViewEditBindsCyclingRapidFire = 0;
 	}
 	if (buttonsChanged) {
@@ -285,15 +230,15 @@ void menuViewEditBinds(uint16_t buttons, uint32_t buttonHoldTime,
 	}
 }
 
-//Clears keybinds in the current profile
-void menuClearKeybinds(uint16_t buttons, uint32_t buttonHoldTime,
+//Clears binds in the current profile
+void menuClearBinds(uint16_t buttons, uint32_t buttonsHoldTime,
 		uint8_t buttonsChanged, uint8_t firstRun) {
 	//Render
 	screenWriteTopLine("Hold Start=Clear");
 	screenWriteBottomLine("Press B=Cancel");
 
 	//Process Buttons
-	if (buttons == BUTTON_START && buttonHoldTime > 3000) //Start held for 3s to clear
+	if (buttons == BUTTON_START && buttonsHoldTime > 3000) //Start held for 3s to clear
 			{
 		screenWriteTopLine("Clearing Binds");
 		screenWriteBottomLine("");
@@ -310,15 +255,15 @@ void menuClearKeybinds(uint16_t buttons, uint32_t buttonHoldTime,
 
 //Loads a profile from flash
 uint16_t menuSelectProfileSelectedProfileIndex = 0;
-void menuSelectProfile(uint16_t buttons, uint32_t buttonHoldTime,
+void menuSelectProfile(uint16_t buttons, uint32_t buttonsHoldTime,
 		uint8_t buttonsChanged, uint8_t firstRun) {
 	//Render
-	char topLineBuffer[17];
-	char bottomLineBuffer[17];
-	sprintf(topLineBuffer, "New Profile: %i", menuSelectProfileSelectedProfileIndex + 1);
-	sprintf(bottomLineBuffer, "Cur Profile: %i", profileGetSelectedIndex() + 1);
-	screenWriteTopLine(topLineBuffer);
-	screenWriteBottomLine(bottomLineBuffer);
+	char topLine[SCREEN_CSTR_WIDTH];
+	char bottomLine[SCREEN_CSTR_WIDTH];
+	sprintf(topLine, "New Profile: %i", menuSelectProfileSelectedProfileIndex + 1);
+	sprintf(bottomLine, "Cur Profile: %i", profileGetSelectedIndex() + 1);
+	screenWriteTopLine(topLine);
+	screenWriteBottomLine(bottomLine);
 
 	//Process Buttons
 	if (buttonsChanged) {
@@ -344,15 +289,15 @@ void menuSelectProfile(uint16_t buttons, uint32_t buttonHoldTime,
 
 //Save a profile to a slot
 uint16_t menuSaveProfileSelectedProfileIndex = 0;
-void menuSaveProfile(uint16_t buttons, uint32_t buttonHoldTime,
+void menuSaveProfile(uint16_t buttons, uint32_t buttonsHoldTime,
 		uint8_t buttonsChanged, uint8_t firstRun) {
 	//Render
-	char topLineBuffer[17];
-	char bottomLineBuffer[17];
-	sprintf(topLineBuffer, "Save Profile: %i", menuSaveProfileSelectedProfileIndex + 1);
-	sprintf(bottomLineBuffer, "Cur Profile: %i", profileGetSelectedIndex() + 1);
-	screenWriteTopLine(topLineBuffer);
-	screenWriteBottomLine(bottomLineBuffer);
+	char topLine[SCREEN_CSTR_WIDTH];
+	char bottomLine[SCREEN_CSTR_WIDTH];
+	sprintf(topLine, "Save Profile: %i", menuSaveProfileSelectedProfileIndex + 1);
+	sprintf(bottomLine, "Cur Profile: %i", profileGetSelectedIndex() + 1);
+	screenWriteTopLine(topLine);
+	screenWriteBottomLine(bottomLine);
 
 	//Process Buttons
 	if (buttonsChanged) {
@@ -377,14 +322,14 @@ void menuSaveProfile(uint16_t buttons, uint32_t buttonHoldTime,
 }
 
 //Toggle screen displaying input during normal use
-void menuToggleScreenShowInput(uint16_t buttons, uint32_t buttonHoldTime,
+void menuToggleScreenShowInput(uint16_t buttons, uint32_t buttonsHoldTime,
 		uint8_t buttonsChanged, uint8_t firstRun) {
 	screenSetShowNormalInput(!screenGetShowNormalInput());
 	menuDeactivate(1);
 }
 
 //About
-void menuAbout(uint16_t buttons, uint32_t buttonHoldTime,
+void menuAbout(uint16_t buttons, uint32_t buttonsHoldTime,
 		uint8_t buttonsChanged, uint8_t firstRun) {
 	screenWriteTopLine("SNES->GamePad");
 	screenWriteBottomLine("By Netham45");
@@ -394,7 +339,67 @@ void menuAbout(uint16_t buttons, uint32_t buttonHoldTime,
 }
 //End Submenu Callbacks
 
-//Init functions
+//Hide menu, clearMessage to clear the screen immediately, otherwise leave the screen alone
+void menuDeactivate(uint8_t _clearMessage) {
+	menuActive = 0;
+	if (_clearMessage)
+		screenClear();
+	menuActiveSubmenuCallback = 0;
+}
+
+//Show the menu
+void menuActivate() {
+	menuActive = 1;
+	menuActiveSubmenuCallback = 0;
+}
+
+int menuProcess(uint16_t buttons) {
+
+	uint8_t buttonsChanged = 0;
+
+	if (menuLastButtonsPressed != buttons) //Check if buttons have changed, if so reset the held timer and set the changed flag
+			{
+		menuLastButtonsPressedTime = HAL_GetTick();
+		menuLastButtonsPressed = buttons;
+		buttonsChanged = 1;
+	}
+
+	uint32_t buttonsHoldTime = HAL_GetTick() - menuLastButtonsPressedTime; //How long the button has been held
+
+	if (buttons == (BUTTON_START | BUTTON_SELECT) && buttonsHoldTime > 1000) //If the menu isn't active and START+SELECT are held alone for 1s open it
+			{
+		menuActivate();
+	}
+
+	if (!menuActive) {
+		return 0; //  0 for continue to press buttons on the PC
+	}
+
+	screenResetClearTime(); //Clear any timers to turn the screen off
+
+	if (menuActiveSubmenuCallback) //Call a submenu
+	{
+		void (*callback)(uint16_t buttons, uint32_t buttonsHoldTime,
+				uint8_t buttonsChanged, uint8_t firstRun) = menuActiveSubmenuCallback;
+		callback(buttons, buttonsHoldTime, buttonsChanged,
+				mainMenuSubmenuFirstRun);
+		mainMenuSubmenuFirstRun = 0;
+	} else //Render the menu, check the keys
+	{
+		menuMainMenu(buttons, buttonsHoldTime, buttonsChanged,
+						0);
+	}
+
+	return 1; //1 for don't continue
+}
+
+//Registers a menu entry's name, help message, and callback function
+void menuInitMenuEntry(char *name, char *help, void *callback) {
+	strcpy(menuItems[menuNumEntries].name, name);
+	strcpy(menuItems[menuNumEntries].help, help);
+	menuItems[menuNumEntries].callback = callback;
+	menuNumEntries++;
+}
 
 //Register menu entries/callbacks
 void menuInit() {
@@ -403,7 +408,7 @@ void menuInit() {
 			&menuRebindKeys);
 	menuInitMenuEntry("View/Edit Binds", "Scroll through binds and edit rapid fire",
 			&menuViewEditBinds);
-	menuInitMenuEntry("Clear Binds", "Clear all binds", &menuClearKeybinds);
+	menuInitMenuEntry("Clear Binds", "Clear all binds", &menuClearBinds);
 	menuInitMenuEntry("Select Profile", "Select which profile you want to use",
 			&menuSelectProfile);
 	menuInitMenuEntry("Save Profile", "Save profile to Flash", &menuSaveProfile);

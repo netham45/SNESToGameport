@@ -2,33 +2,32 @@
 #include <snestogameport/buttons.h>
 #include <snestogameport/lcd_hd44780_i2c.h>
 /* Screen interface */
-uint32_t clearMessageInTime = 0;
+uint32_t clearMessageTime = 0;
 uint8_t screenShowNormalInput = 0;
 
-char topLine[17];
-char bottomLine[17];
+char currentTopLine[SCREEN_CSTR_WIDTH];
+char currentBottomLine[SCREEN_CSTR_WIDTH];
 
 void screenClear() {
 	lcdSetCursorPosition(0, 0);
-	lcdPrintStr((uint8_t*) "                ", 16);
+	lcdPrintStr((uint8_t*) "                ", SCREEN_WIDTH);
 	lcdSetCursorPosition(0, 1);
-	lcdPrintStr((uint8_t*) "                ", 16);
+	lcdPrintStr((uint8_t*) "                ", SCREEN_WIDTH);
 	lcdBacklight(LCD_BIT_BACKIGHT_OFF);
-	topLine[0] = 0;
-	bottomLine[0] = 0;
-	//Update screens
+	currentTopLine[0] = 0;
+	currentBottomLine[0] = 0;
 }
 
 void screenClearIn(uint8_t seconds) {
-	clearMessageInTime = HAL_GetTick() + (seconds * 1000);
+	clearMessageTime = HAL_GetTick() + (seconds * 1000);
 }
 
-void screenResetClearTimer() {
-	clearMessageInTime = 0;
+void screenResetClearTime() {
+	clearMessageTime = 0;
 }
 
 uint32_t screenGetClearMessageTime() {
-	return clearMessageInTime;
+	return clearMessageTime;
 }
 
 uint8_t screenGetShowNormalInput() {
@@ -42,39 +41,37 @@ void screenSetShowNormalInput(uint8_t show) {
 void screenWriteTopLine(char *data)
 
 {
-	if (strcmp(topLine, data) != 0) {
-		strcpy(topLine, data);
+	if (strcmp(currentTopLine, data) != 0) {
+		strcpy(currentTopLine, data);
 		lcdBacklight(LCD_BIT_BACKIGHT_ON);
-		//Update screen
 		lcdSetCursorPosition(0, 0);
 		lcdPrintStr((uint8_t*) data, strlen(data));
-		lcdPrintStr((uint8_t*) "                ", 16 - strlen(data));
+		lcdPrintStr((uint8_t*) "                ", SCREEN_WIDTH - strlen(data));
 	}
 
 }
 
 void screenWriteBottomLine(char *data) {
-	if (strcmp(bottomLine, data) != 0) {
-		strcpy(bottomLine, data);
+	if (strcmp(currentBottomLine, data) != 0) {
+		strcpy(currentBottomLine, data);
 		lcdBacklight(LCD_BIT_BACKIGHT_ON);
-		//Update screen
 		lcdSetCursorPosition(0, 1);
 		lcdPrintStr((uint8_t*) data, strlen(data));
-		lcdPrintStr((uint8_t*) "                ", 16 - strlen(data));
+		lcdPrintStr((uint8_t*) "                ", SCREEN_WIDTH - strlen(data));
 	}
 }
 
 void screenProcess(uint16_t buttons) {
-	if (clearMessageInTime && (clearMessageInTime < HAL_GetTick())) {
+	if (clearMessageTime && (clearMessageTime < HAL_GetTick())) {
 		screenClear();
-		clearMessageInTime = 0;
+		clearMessageTime = 0;
 	}
 
 	//If no other message is being shown show the currently pressed keys after rebinding
 	if (screenShowNormalInput) {
-		if (!clearMessageInTime) {
+		if (!clearMessageTime) {
 			if (buttons) {
-				char buffer[17];
+				char buffer[SCREEN_CSTR_WIDTH];
 				buttonsToString(buffer, buttons, "\xA5");
 				screenWriteTopLine(buffer);
 				screenWriteBottomLine("");
