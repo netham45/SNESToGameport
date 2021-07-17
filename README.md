@@ -25,3 +25,5 @@ Gameport wiring:
     Button 2   - PB12    
     Button 3   - PB13    
     Button 4   - PB14    
+
+Project made for an stm32f401ccu
