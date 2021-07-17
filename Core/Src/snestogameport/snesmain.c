@@ -1,16 +1,17 @@
 #include <snestogameport/snesmain.h>
 
 void snesmain(I2C_HandleTypeDef *hi2c, TIM_HandleTypeDef *htimdelayus) {
-	//Splash
-	writeTopLine("SNES -> GamePort");
-	writeBottomLine("By Netham45");
-	clearMessageIn(2);
 
 	setDelayuSTimer(htimdelayus); //Init delayuS timer for snes controller polling
 	lcdInit(hi2c, (uint8_t) 0x27, (uint8_t) 20, (uint8_t) 4); //Init LCD
 	gpioDefaultState(); //Init GPIO
 	selectProfile(0); //Load profile 0
 	initMenu(); //Register menu entries
+	
+	//Splash
+	writeTopLine("SNES -> GamePort");
+	writeBottomLine("By Netham45");
+	clearMessageIn(2);
 
 	while (1) {
 		uint16_t buttons = pollSNES(); //Query SNES controller
