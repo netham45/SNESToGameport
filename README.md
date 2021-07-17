@@ -25,5 +25,10 @@ Gameport wiring:
     Button 2   - PB12    
     Button 3   - PB13    
     Button 4   - PB14    
+    
+16x2 hd44780 LCD i2c wiring:    
+    Power - 5v    
+    SDA - PB9    
+    SCL - PB8    
 
 Project made for an stm32f401ccu
