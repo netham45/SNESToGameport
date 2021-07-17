@@ -14,7 +14,7 @@ void snesMain(I2C_HandleTypeDef *hi2c, TIM_HandleTypeDef *htimdelayus) {
 	menuInit(); //Register menu entries
 	
 	//Splash
-	screenWriteTopLine("SNES -> GamePort");
+	screenWriteTopLine("SNES -> Gameport");
 	screenWriteBottomLine("By Netham45");
 	screenClearIn(2);
 

@@ -29,10 +29,10 @@ void profileSave(uint8_t newProfileIndex) {
 	flashWriteData(data, sizeof(data)); //Save profile
 }
 
-void profileSelect(uint8_t profile) {
+void profileSelect(uint8_t newProfileIndex) {
 	//Load profile from flash
-	memcpy(getDataProfileOffset(profile), getFlashProfileOffset(currentProfileIndex), PROFILE_SIZE); //Copy data for this profile in from flash, this discards any changes
-	currentProfileIndex = profile;
+	memcpy(getDataProfileOffset(newProfileIndex), getFlashProfileOffset(newProfileIndex), PROFILE_SIZE); //Copy data for this profile in from flash, this discards any changes
+	currentProfileIndex = newProfileIndex;
 	currentProfile = getDataProfileOffset(currentProfileIndex);
 }
 

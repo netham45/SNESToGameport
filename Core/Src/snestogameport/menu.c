@@ -23,7 +23,8 @@ void *menuActiveSubmenuCallback = 0; //Pointer to submenu callback, 0 if not in 
 //Main Menu variables
 uint8_t mainMenuTopSelected = 1;
 uint8_t mainMenuSubmenuFirstRun = 0;
-int mainMenuHelpIndex = 0;
+signed int mainMenuHelpIndex = 0;
+signed int mainMenuHelpPause = 0;
 uint32_t mainMenuHelpLastTick = 0;
 uint8_t mainMenuCurrentMenuIndex = 0;
 
@@ -50,31 +51,48 @@ void menuMainMenu(uint16_t buttons, uint32_t buttonsHoldTime,
 			{
 		memset(otherLine, 0x20, sizeof(otherLine));
 
-		if (!mainMenuHelpLastTick)
+		if (!mainMenuHelpLastTick) //Init
+		{
+			mainMenuHelpPause = 2;
+			mainMenuHelpIndex = 0;
 			mainMenuHelpLastTick = HAL_GetTick();
+		}
 
 		uint32_t helpLastScrolled = HAL_GetTick() - mainMenuHelpLastTick;
 		if (helpLastScrolled > 350) //Tick help another char every 350ms, it's slow but any faster the LCD blurs
 				{
 			mainMenuHelpLastTick = HAL_GetTick();
-			mainMenuHelpIndex += 1;
-			if (mainMenuHelpIndex > strlen(currentOption->help))
-				mainMenuHelpIndex = -16;
+			if (!mainMenuHelpPause)
+			{
+				mainMenuHelpIndex += 1;
+				if (mainMenuHelpIndex > strlen(currentOption->help) - 17)
+				{
+					mainMenuHelpPause = 2; //Pause on end
+				}
+			}
+			else
+			{
+				mainMenuHelpPause--;
+				if (!mainMenuHelpPause)
+				{
+					if (mainMenuHelpIndex > strlen(currentOption->help) - 17)
+					{
+						mainMenuHelpIndex = 0; //Go to start on unpause
+						mainMenuHelpPause = 2; //Pause on start
+					}
+				}
+			}
+
 		}
 
-		if (mainMenuHelpIndex < 0) //If it's negative it means it's scrolling in
-				{
-			memset(otherLine, 0x20, 0 - mainMenuHelpIndex);
-			memcpy(otherLine + (0 - mainMenuHelpIndex),
-					currentOption->help, 16 + mainMenuHelpIndex);
-		} else
-			memcpy(otherLine, currentOption->help + mainMenuHelpIndex,
-					16);
+		memcpy(otherLine, currentOption->help + mainMenuHelpIndex,
+				16);
 		otherLine[16] = 0;
 	} else //Show the other option
 	{
-		strcpy(otherLine, otherOption->name);
+		sprintf(otherLine," %s",otherOption->name);
 		mainMenuHelpIndex = 0;
+		mainMenuHelpLastTick = 0;
 	}
 
 	if (mainMenuTopSelected) {
@@ -284,7 +302,6 @@ void menuSelectProfile(uint16_t buttons, uint32_t buttonsHoldTime,
 			menuDeactivate(1);
 		}
 	}
-
 }
 
 //Save a profile to a slot
@@ -331,7 +348,7 @@ void menuToggleScreenShowInput(uint16_t buttons, uint32_t buttonsHoldTime,
 //About
 void menuAbout(uint16_t buttons, uint32_t buttonsHoldTime,
 		uint8_t buttonsChanged, uint8_t firstRun) {
-	screenWriteTopLine("SNES->GamePad");
+	screenWriteTopLine("SNES->Gameport");
 	screenWriteBottomLine("By Netham45");
 	if (buttons && buttonsChanged) {
 		menuDeactivate(1);
@@ -409,10 +426,10 @@ void menuInit() {
 	menuInitMenuEntry("View/Edit Binds", "Scroll through binds and edit rapid fire",
 			&menuViewEditBinds);
 	menuInitMenuEntry("Clear Binds", "Clear all binds", &menuClearBinds);
-	menuInitMenuEntry("Select Profile", "Select which profile you want to use",
+	menuInitMenuEntry("Select Profile", "Select which profile to use",
 			&menuSelectProfile);
-	menuInitMenuEntry("Save Profile", "Save profile to Flash", &menuSaveProfile);
-	menuInitMenuEntry("Show Input", "Toggle showing input after binds",
+	menuInitMenuEntry("Save Profile", "Save current profile to a slot in Flash", &menuSaveProfile);
+	menuInitMenuEntry("Show/Hide Input", "Toggle showing input after binds",
 			&menuToggleScreenShowInput);
 	menuInitMenuEntry("About", "About this device", &menuAbout);
 }
