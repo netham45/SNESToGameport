@@ -36,7 +36,7 @@
 #include "string.h"
 #include "FreeRTOS.h"
 #include "task.h"
-#include "lcd_hd44780_i2c.h"
+#include <snestogameport/lcd_hd44780_i2c.h>
 
 uint8_t lcdCommandBuffer[6] = {0x00};
 
