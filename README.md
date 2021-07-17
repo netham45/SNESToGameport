@@ -3,7 +3,7 @@
 Converts an SNES controller to a Gameport.
 
 SNES wiring:    
-    Power - 5V    
+    Power - 3.3V    
     Latch - PA4    
     Clock - PA5    
     Data - PA6    
