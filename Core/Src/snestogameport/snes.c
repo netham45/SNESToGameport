@@ -1,7 +1,7 @@
 #include <snestogameport/snes.h>
 //Microsecond Sleep
 TIM_HandleTypeDef *htimdelayus = 0;
-void setDelayuSTimer(TIM_HandleTypeDef *_htimdelayus) {
+void snesSetDelayuSTimer(TIM_HandleTypeDef *_htimdelayus) {
 	htimdelayus = _htimdelayus;
 }
 
@@ -19,7 +19,7 @@ void delayuS(uint16_t us) {
 //End Microsecond Sleep
 
 //Query the SNES controller
-int pollSNES() {
+int snesPoll() {
 	uint16_t buttons = 0;
 	HAL_GPIO_WritePin(SNES_Latch_GPIO_Port, SNES_Latch_Pin, GPIO_PIN_SET);
 	delayuS(12); // 12µs delay

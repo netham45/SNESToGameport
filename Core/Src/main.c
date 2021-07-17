@@ -372,7 +372,7 @@ static void MX_GPIO_Init(void)
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-  snesmain(&hi2c1,&htim1);
+  snesMain(&hi2c1,&htim1);
   /* USER CODE END 5 */
 }
 

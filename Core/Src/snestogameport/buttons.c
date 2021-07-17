@@ -1,4 +1,5 @@
 #include <snestogameport/buttons.h>
+#include <snestogameport/flash.h>
 
 uint32_t data[DATA_INIT_SIZE];
 uint8_t currentProfileIndex = 0;
@@ -10,11 +11,11 @@ struct rebindEntry* getDataProfileOffset(uint8_t profileIndex) //RW
 
 struct rebindEntry* getFlashProfileOffset(uint8_t profileIndex) //RO
 {
-	 return (struct rebindEntry*)Flash_ReadData() + (PROFILE_SIZE * profileIndex);
+	 return (struct rebindEntry*)flashReadData() + (PROFILE_SIZE * profileIndex);
 }
 
 
-void saveProfileNum(uint8_t newProfileIndex) {
+void profileSave(uint8_t newProfileIndex) {
 	if (newProfileIndex != currentProfileIndex) //If we're saving to a new profile
 			{
 		struct rebindEntry *newProfile = getDataProfileOffset(newProfileIndex); //Pointer to new profile
@@ -25,21 +26,21 @@ void saveProfileNum(uint8_t newProfileIndex) {
 		currentProfileIndex = newProfileIndex; //Update selected profile number
 	}
 
-	Flash_WriteData(data, sizeof(data)); //Save profile
+	flashWriteData(data, sizeof(data)); //Save profile
 }
 
-void selectProfile(uint8_t profile) {
+void profileSelect(uint8_t profile) {
 	//Load profile from flash
 	memcpy(getDataProfileOffset(profile), getFlashProfileOffset(currentProfileIndex), PROFILE_SIZE); //Copy data for this profile in from flash, this discards any changes
 	currentProfileIndex = profile;
 	currentProfile = getDataProfileOffset(currentProfileIndex);
 }
 
-uint8_t getSelectedProfileIndex() {
+uint8_t profileGetSelectedIndex() {
 	return currentProfileIndex;
 }
 
-uint8_t getBindCount() {
+uint8_t bindGetBindCount() {
 	int i = 0;
 	for (i = 0; i < REBIND_COUNT; i++)
 		if (currentProfile[i].buttonsPressed == 0 || currentProfile[i].buttonsPressed == 65535)
@@ -50,7 +51,7 @@ uint8_t getBindCount() {
 void bindKey(uint16_t buttonsPressed, uint16_t buttonsToPress,
 		uint8_t rapidFire) {
 	uint8_t rebindPos = 0;
-	for (rebindPos = 0; rebindPos < getBindCount(); rebindPos++)
+	for (rebindPos = 0; rebindPos < bindGetBindCount(); rebindPos++)
 		if (currentProfile[rebindPos].buttonsPressed == buttonsPressed)
 			break;
 	currentProfile[rebindPos].buttonsPressed = buttonsPressed;
@@ -58,7 +59,7 @@ void bindKey(uint16_t buttonsPressed, uint16_t buttonsToPress,
 	currentProfile[rebindPos].rapidFire = rapidFire;
 }
 
-void clearBinds() {
+void bindClearAll() {
 	for (int i = 0; i < REBIND_COUNT; i++) {
 		currentProfile[i].buttonsPressed = 65535;
 		currentProfile[i].buttonsToPress = 65535;
@@ -66,7 +67,7 @@ void clearBinds() {
 	}
 }
 
-void cycleRapidFire(struct rebindEntry *entry) {
+void bindCycleRapidFire(struct rebindEntry *entry) {
 	entry->rapidFire++;
 	entry->rapidFire %= 5;
 }
@@ -74,7 +75,7 @@ void cycleRapidFire(struct rebindEntry *entry) {
 //End Rebinds
 
 //Set pins to default state (axis centered, no buttons pressed)
-void gpioDefaultState() {
+void bindGPIODefaultState() {
 	HAL_GPIO_WritePin(X1_Center_GPIO_Port, X1_Center_Pin, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(Y1_Center_GPIO_Port, Y1_Center_Pin, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(X2_Center_GPIO_Port, X2_Center_Pin, GPIO_PIN_SET);
@@ -92,7 +93,7 @@ void gpioDefaultState() {
 }
 
 //Main Loop Processing Functions
-void processRebinds(uint16_t *buttons) {
+void bindProcess(uint16_t *buttons) {
 	//Process button rebinds
 	uint16_t realButtons = *buttons;
 	uint16_t bindButtonsToPress = 0;
@@ -121,7 +122,7 @@ void processRebinds(uint16_t *buttons) {
 	*buttons |= bindButtonsToPress; //Add buttonsToPress to buttons
 }
 
-void processButtons(uint16_t buttons) {
+void buttonsProcess(uint16_t buttons) {
 	//4 Buttons
 	if (buttons & (1)) // B button
 		HAL_GPIO_WritePin(Button1_GPIO_Port, Button1_Pin, GPIO_PIN_RESET);
@@ -203,4 +204,59 @@ void processButtons(uint16_t buttons) {
 		HAL_GPIO_WritePin(Y2_Center_GPIO_Port, Y2_Center_Pin, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(Y2_Max_GPIO_Port, Y2_Max_Pin, GPIO_PIN_SET);
 	}
+}
+
+void buttonsToString(char *stringBuffer, uint16_t buttons, char *prefix) {
+	char buffer[32] = { 0 };
+	strcpy(buffer, prefix);
+	uint8_t offset = strlen(buffer);
+	uint8_t written = 0;
+	for (int i = 0; i < 12; i++) {
+		if (buttons & (1 << i)) {
+			written = 1;
+			switch (i) {
+			case 8:
+				sprintf(buffer + offset, "A+");
+				break;
+			case 0:
+				sprintf(buffer + offset, "B+");
+				break;
+			case 9:
+				sprintf(buffer + offset, "X+");
+				break;
+			case 1:
+				sprintf(buffer + offset, "Y+");
+				break;
+			case 4:
+				sprintf(buffer + offset, "Up+");
+				break;
+			case 5:
+				sprintf(buffer + offset, "Down+");
+				break;
+			case 6:
+				sprintf(buffer + offset, "Left+");
+				break;
+			case 7:
+				sprintf(buffer + offset, "Right+");
+				break;
+			case 10:
+				sprintf(buffer + offset, "L+");
+				break;
+			case 11:
+				sprintf(buffer + offset, "R+");
+				break;
+			case 3:
+				sprintf(buffer + offset, "Start+");
+				break;
+			case 2:
+				sprintf(buffer + offset, "Select+");
+				break;
+			}
+			offset += strlen(buffer + offset);
+		}
+	}
+	if (written)
+		buffer[strlen(buffer) - 1] = 0; //Remove the final plus
+	buffer[16] = 0; //Cap length at 16 chars
+	memcpy(stringBuffer, buffer, 17); //Copy 16 chars + terminator
 }

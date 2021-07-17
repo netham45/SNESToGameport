@@ -2,12 +2,12 @@
 
 //Flash Read/Write
 
-uint32_t* Flash_ReadData() {
+uint32_t* flashReadData() {
 	uint32_t address = 0x08020000;
 	return (uint32_t*) address;
 }
 
-void Flash_WriteData(uint32_t *data, uint32_t size) {
+void flashWriteData(uint32_t *data, uint32_t size) {
 	//TODO: Find working wear leveling library
 	uint32_t address = 0x08020000; // Sector 5 start address
 	HAL_FLASH_Unlock();

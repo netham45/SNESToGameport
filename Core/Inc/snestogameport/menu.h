@@ -1,8 +1,6 @@
 #ifndef INC_SNESTOGAMEPORT_MENU_H_
 #define INC_SNESTOGAMEPORT_MENU_H_
 #include <main.h>
-#include <snestogameport/screen.h>
-#include <snestogameport/buttons.h>
 
 #define MAX_MENU_ITEMS  32
 #define MAX_MENU_NAME_LEN  16 //Menu indicator + 15 + terminator
@@ -14,10 +12,10 @@ struct menuEntry {
 	void *callback;
 } menuItems[MAX_MENU_ITEMS];
 
-void initMenuEntry(char *name, char *help, void *callback);
-void deactivateMenu(uint8_t _clearMessage);
-void activateMenu();
-int processMenu(uint16_t buttons);
-void initMenu();
+void menuInitMenuEntry(char *name, char *help, void *callback);
+void menuDeactivate(uint8_t _clearMessage);
+void menuActivate();
+int menuProcess(uint16_t buttons);
+void menuInit();
 
 #endif /* INC_SNESTOGAMEPORT_MENU_H_ */

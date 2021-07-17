@@ -1,4 +1,6 @@
 #include <snestogameport/menu.h>
+#include <snestogameport/screen.h>
+#include <snestogameport/buttons.h>
 
 uint8_t menuNumEntries = 0;
 uint8_t menuActive = 0;
@@ -14,7 +16,7 @@ uint32_t menuLastButtonsPressedTime = 0;
 uint16_t menuLastButtonsPressed = 0;
 
 //Registers a menu entry's name, help message, and callback function
-void initMenuEntry(char *name, char *help, void *callback) {
+void menuInitMenuEntry(char *name, char *help, void *callback) {
 	strcpy(menuItems[menuNumEntries].name, name);
 	strcpy(menuItems[menuNumEntries].help, help);
 	menuItems[menuNumEntries].callback = callback;
@@ -22,15 +24,15 @@ void initMenuEntry(char *name, char *help, void *callback) {
 }
 
 //Hide menu, clearMessage to clear the screen immediately, otherwise leave the screen alone
-void deactivateMenu(uint8_t _clearMessage) {
+void menuDeactivate(uint8_t _clearMessage) {
 	menuActive = 0;
 	if (_clearMessage)
-		clearMessage();
+		screenClear();
 	menuActiveSubmenuCallback = 0;
 }
 
 //Show the menu
-void activateMenu() {
+void menuActivate() {
 	menuActive = 1;
 	menuActiveSubmenuCallback = 0;
 }
@@ -43,7 +45,7 @@ uint32_t mainMenuHelpLastTick = 0;
 uint8_t mainMenuCurrentMenuIndex = 0;
 
 //Main Menu
-int processMenu(uint16_t buttons) {
+int menuProcess(uint16_t buttons) {
 
 	uint8_t buttonsChanged = 0;
 
@@ -58,14 +60,14 @@ int processMenu(uint16_t buttons) {
 
 	if (buttons == (BUTTON_START | BUTTON_SELECT) && buttonsHoldTime > 1000) //If the menu isn't active and START+SELECT are held alone for 1s open it
 			{
-		activateMenu();
+		menuActivate();
 	}
 
 	if (!menuActive) {
 		return 0; //  0 for continue to press buttons on the PC
 	}
 
-	clearClearMessage(); //Clear any timers to turn the screen off
+	screenResetClearTimer(); //Clear any timers to turn the screen off
 
 	if (menuActiveSubmenuCallback) //Call a submenu
 	{
@@ -125,11 +127,11 @@ int processMenu(uint16_t buttons) {
 		}
 
 		if (mainMenuTopSelected) {
-			writeTopLine(currentOptionBuffer);
-			writeBottomLine(otherLineBuffer);
+			screenWriteTopLine(currentOptionBuffer);
+			screenWriteBottomLine(otherLineBuffer);
 		} else {
-			writeTopLine(otherLineBuffer);
-			writeBottomLine(currentOptionBuffer);
+			screenWriteTopLine(otherLineBuffer);
+			screenWriteBottomLine(currentOptionBuffer);
 		}
 
 		//End Render Menu
@@ -154,7 +156,7 @@ int processMenu(uint16_t buttons) {
 				mainMenuSubmenuFirstRun = 1;
 			} else if (buttons & BUTTON_B) //Close menu
 			{
-				deactivateMenu(1);
+				menuDeactivate(1);
 			}
 		}
 	}
@@ -189,35 +191,35 @@ void menuRebindKeys(uint16_t buttons, uint32_t buttonHoldTime,
 			menuRebindKeyFirstKeyReleased = 0;
 		} else if (menuRebindKeyFirstKeyReleased) //The first key was pressed and released, take the second and save the binding
 		{
-			char message2[17];
-			buttonToString(message2, buttons, "\xA5");
-			writeBottomLine(message2);
+			char bottomLineBuffer[17];
+			buttonsToString(bottomLineBuffer, buttons, "\xA5");
+			screenWriteBottomLine(bottomLineBuffer);
 			bindKey(menuRebindKeyFirstKey, buttons, 0);
-			writeTopLine("Binding Saved");
-			writeBottomLine("");
-			deactivateMenu(0);
-			clearMessageIn(2);
+			screenWriteTopLine("Binding Saved");
+			screenWriteBottomLine("");
+			menuDeactivate(0);
+			screenClearIn(2);
 			return;
 		}
 	}
 
 	//Render
-	char message[17];
-	char message2[17];
+	char topLineBuffer[17];
+	char bottomLineBuffer[17];
 	if (!menuRebindKeyFirstKey) //If the first key isn't known yet
 	{
-		buttonToString(message, buttons, "\x7F");
-		strcpy(message2, "Hold Input Btns");
+		buttonsToString(topLineBuffer, buttons, "\x7F");
+		strcpy(bottomLineBuffer, "Hold Input Btns");
 	} else {
-		buttonToString(message, menuRebindKeyFirstKey, "\xA5");
+		buttonsToString(topLineBuffer, menuRebindKeyFirstKey, "\xA5");
 		if (buttons && menuRebindKeyFirstKeyReleased) {
-			buttonToString(message2, buttons, "\x7E");
+			buttonsToString(bottomLineBuffer, buttons, "\x7E");
 		} else {
-			strcpy(message2, "Hold Output Btns");
+			strcpy(bottomLineBuffer, "Hold Output Btns");
 		}
 	}
-	writeTopLine(message);
-	writeBottomLine(message2);
+	screenWriteTopLine(topLineBuffer);
+	screenWriteBottomLine(bottomLineBuffer);
 }
 
 //View binds/set rapid fire
@@ -231,31 +233,31 @@ void menuViewEditBinds(uint16_t buttons, uint32_t buttonHoldTime,
 		struct rebindEntry *bind = &currentProfile[menuViewEditBindsIndex];
 		if (bind->buttonsPressed == 65535 || bind->buttonsPressed == 0) //There's no binds
 				{
-			writeTopLine("No binds to");
-			writeBottomLine("display");
-			deactivateMenu(0);
-			clearMessageIn(2);
+			screenWriteTopLine("No binds to");
+			screenWriteBottomLine("display");
+			menuDeactivate(0);
+			screenClearIn(2);
 			return;
 		}
 	}
 
 	//Render
 	struct rebindEntry *bind = &currentProfile[menuViewEditBindsIndex];
-	char message[17];
-	char message2[17];
+	char topLineBuffer[17];
+	char bottomLineBuffer[17];
 	if (!menuViewEditBindsCyclingRapidFire) //If not showing rapid fire
 	{
-		buttonToString(message, bind->buttonsPressed, "\x7F");
-		buttonToString(message2, bind->buttonsToPress, "\x7E");
+		buttonsToString(topLineBuffer, bind->buttonsPressed, "\x7F");
+		buttonsToString(bottomLineBuffer, bind->buttonsToPress, "\x7E");
 	} else {
-		strcpy(message, "Rapid Fire:");
+		strcpy(topLineBuffer, "Rapid Fire:");
 		if (bind->rapidFire)
-			sprintf(message2, "%ims", bind->rapidFire * RAPID_FIRE_BASE_TIME);
+			sprintf(bottomLineBuffer, "%ims", bind->rapidFire * RAPID_FIRE_BASE_TIME);
 		else
-			strcpy(message2, "Off");
+			strcpy(bottomLineBuffer, "Off");
 	}
-	writeTopLine(message);
-	writeBottomLine(message2);
+	screenWriteTopLine(topLineBuffer);
+	screenWriteBottomLine(bottomLineBuffer);
 
 	//Process Buttons
 	if (menuViewEditBindsCyclingRapidFire && !(buttons & BUTTON_SELECT)
@@ -269,16 +271,16 @@ void menuViewEditBinds(uint16_t buttons, uint32_t buttonHoldTime,
 				menuViewEditBindsIndex--;
 		} else if (buttons & BUTTON_DOWN) //Scroll down
 		{
-			if (menuViewEditBindsIndex < getBindCount() - 1) {
+			if (menuViewEditBindsIndex < bindGetBindCount() - 1) {
 				menuViewEditBindsIndex++;
 			}
 		} else if (buttons & BUTTON_SELECT) //Cycle rapid fire
 		{
 			menuViewEditBindsCyclingRapidFire = 1;
-			cycleRapidFire(&currentProfile[menuViewEditBindsIndex]);
+			bindCycleRapidFire(&currentProfile[menuViewEditBindsIndex]);
 		} else if (buttons & BUTTON_B) //Close
 		{
-			deactivateMenu(1);
+			menuDeactivate(1);
 		}
 	}
 }
@@ -287,22 +289,22 @@ void menuViewEditBinds(uint16_t buttons, uint32_t buttonHoldTime,
 void menuClearKeybinds(uint16_t buttons, uint32_t buttonHoldTime,
 		uint8_t buttonsChanged, uint8_t firstRun) {
 	//Render
-	writeTopLine("Hold Start=Clear");
-	writeBottomLine("Press B=Cancel");
+	screenWriteTopLine("Hold Start=Clear");
+	screenWriteBottomLine("Press B=Cancel");
 
 	//Process Buttons
 	if (buttons == BUTTON_START && buttonHoldTime > 3000) //Start held for 3s to clear
 			{
-		writeTopLine("Clearing Binds");
-		writeBottomLine("");
-		clearBinds();
-		writeTopLine("Binds Cleared");
-		deactivateMenu(0);
-		clearMessageIn(2);
+		screenWriteTopLine("Clearing Binds");
+		screenWriteBottomLine("");
+		bindClearAll();
+		screenWriteTopLine("Binds Cleared");
+		menuDeactivate(0);
+		screenClearIn(2);
 	}
 	if (buttons & BUTTON_B) //Cancel
 	{
-		deactivateMenu(1);
+		menuDeactivate(1);
 	}
 }
 
@@ -311,12 +313,12 @@ uint16_t menuSelectProfileSelectedProfileIndex = 0;
 void menuSelectProfile(uint16_t buttons, uint32_t buttonHoldTime,
 		uint8_t buttonsChanged, uint8_t firstRun) {
 	//Render
-	char message[17];
-	char message2[17];
-	sprintf(message, "New Profile: %i", menuSelectProfileSelectedProfileIndex + 1);
-	sprintf(message2, "Cur Profile: %i", getSelectedProfileIndex() + 1);
-	writeTopLine(message);
-	writeBottomLine(message2);
+	char topLineBuffer[17];
+	char bottomLineBuffer[17];
+	sprintf(topLineBuffer, "New Profile: %i", menuSelectProfileSelectedProfileIndex + 1);
+	sprintf(bottomLineBuffer, "Cur Profile: %i", profileGetSelectedIndex() + 1);
+	screenWriteTopLine(topLineBuffer);
+	screenWriteBottomLine(bottomLineBuffer);
 
 	//Process Buttons
 	if (buttonsChanged) {
@@ -329,12 +331,12 @@ void menuSelectProfile(uint16_t buttons, uint32_t buttonHoldTime,
 			menuSelectProfileSelectedProfileIndex++;
 		} else if (buttons & BUTTON_A) //Select
 		{
-			selectProfile(menuSelectProfileSelectedProfileIndex);
-			deactivateMenu(0);
-			clearMessageIn(2);
+			profileSelect(menuSelectProfileSelectedProfileIndex);
+			menuDeactivate(0);
+			screenClearIn(2);
 		} else if (buttons & BUTTON_B) //Cancel
 		{
-			deactivateMenu(1);
+			menuDeactivate(1);
 		}
 	}
 
@@ -345,12 +347,12 @@ uint16_t menuSaveProfileSelectedProfileIndex = 0;
 void menuSaveProfile(uint16_t buttons, uint32_t buttonHoldTime,
 		uint8_t buttonsChanged, uint8_t firstRun) {
 	//Render
-	char message[17];
-	char message2[17];
-	sprintf(message, "Save Profile: %i", menuSaveProfileSelectedProfileIndex + 1);
-	sprintf(message2, "Cur Profile: %i", getSelectedProfileIndex() + 1);
-	writeTopLine(message);
-	writeBottomLine(message2);
+	char topLineBuffer[17];
+	char bottomLineBuffer[17];
+	sprintf(topLineBuffer, "Save Profile: %i", menuSaveProfileSelectedProfileIndex + 1);
+	sprintf(bottomLineBuffer, "Cur Profile: %i", profileGetSelectedIndex() + 1);
+	screenWriteTopLine(topLineBuffer);
+	screenWriteBottomLine(bottomLineBuffer);
 
 	//Process Buttons
 	if (buttonsChanged) {
@@ -363,12 +365,12 @@ void menuSaveProfile(uint16_t buttons, uint32_t buttonHoldTime,
 			menuSaveProfileSelectedProfileIndex++;
 		} else if (buttons & BUTTON_A) //Select
 		{
-			saveProfileNum(menuSaveProfileSelectedProfileIndex);
-			deactivateMenu(0);
-			clearMessageIn(2);
+			profileSave(menuSaveProfileSelectedProfileIndex);
+			menuDeactivate(0);
+			screenClearIn(2);
 		} else if (buttons & BUTTON_B) //Cancel
 		{
-			deactivateMenu(1);
+			menuDeactivate(1);
 		}
 	}
 
@@ -378,16 +380,16 @@ void menuSaveProfile(uint16_t buttons, uint32_t buttonHoldTime,
 void menuToggleScreenShowInput(uint16_t buttons, uint32_t buttonHoldTime,
 		uint8_t buttonsChanged, uint8_t firstRun) {
 	screenSetShowNormalInput(!screenGetShowNormalInput());
-	deactivateMenu(1);
+	menuDeactivate(1);
 }
 
 //About
 void menuAbout(uint16_t buttons, uint32_t buttonHoldTime,
 		uint8_t buttonsChanged, uint8_t firstRun) {
-	writeTopLine("SNES->GamePad");
-	writeBottomLine("By Netham45");
+	screenWriteTopLine("SNES->GamePad");
+	screenWriteBottomLine("By Netham45");
 	if (buttons && buttonsChanged) {
-		deactivateMenu(1);
+		menuDeactivate(1);
 	}
 }
 //End Submenu Callbacks
@@ -395,17 +397,17 @@ void menuAbout(uint16_t buttons, uint32_t buttonHoldTime,
 //Init functions
 
 //Register menu entries/callbacks
-void initMenu() {
+void menuInit() {
 	memset(menuItems, 0, sizeof(menuItems));
-	initMenuEntry("Rebind Keys", "Rebind key(s) to other key(s)",
+	menuInitMenuEntry("Rebind Keys", "Rebind key(s) to other key(s)",
 			&menuRebindKeys);
-	initMenuEntry("View/Edit Binds", "Scroll through binds and edit rapid fire",
+	menuInitMenuEntry("View/Edit Binds", "Scroll through binds and edit rapid fire",
 			&menuViewEditBinds);
-	initMenuEntry("Clear Binds", "Clear all binds", &menuClearKeybinds);
-	initMenuEntry("Select Profile", "Select which profile you want to use",
+	menuInitMenuEntry("Clear Binds", "Clear all binds", &menuClearKeybinds);
+	menuInitMenuEntry("Select Profile", "Select which profile you want to use",
 			&menuSelectProfile);
-	initMenuEntry("Save Profile", "Save profile to Flash", &menuSaveProfile);
-	initMenuEntry("Show Input", "Toggle showing input after binds",
+	menuInitMenuEntry("Save Profile", "Save profile to Flash", &menuSaveProfile);
+	menuInitMenuEntry("Show Input", "Toggle showing input after binds",
 			&menuToggleScreenShowInput);
-	initMenuEntry("About", "About this device", &menuAbout);
+	menuInitMenuEntry("About", "About this device", &menuAbout);
 }

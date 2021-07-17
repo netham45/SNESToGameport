@@ -1,27 +1,32 @@
 #include <snestogameport/snesmain.h>
+#include <snestogameport/screen.h>
+#include <snestogameport/buttons.h>
+#include <snestogameport/menu.h>
+#include <snestogameport/snes.h>
+#include <snestogameport/lcd_hd44780_i2c.h>
 
-void snesmain(I2C_HandleTypeDef *hi2c, TIM_HandleTypeDef *htimdelayus) {
+void snesMain(I2C_HandleTypeDef *hi2c, TIM_HandleTypeDef *htimdelayus) {
 
-	setDelayuSTimer(htimdelayus); //Init delayuS timer for snes controller polling
+	snesSetDelayuSTimer(htimdelayus); //Init delayuS timer for snes controller polling
 	lcdInit(hi2c, (uint8_t) 0x27, (uint8_t) 20, (uint8_t) 4); //Init LCD
-	gpioDefaultState(); //Init GPIO
-	selectProfile(0); //Load profile 0
-	initMenu(); //Register menu entries
+	bindGPIODefaultState(); //Init GPIO
+	profileSelect(0); //Load profile 0
+	menuInit(); //Register menu entries
 	
 	//Splash
-	writeTopLine("SNES -> GamePort");
-	writeBottomLine("By Netham45");
-	clearMessageIn(2);
+	screenWriteTopLine("SNES -> GamePort");
+	screenWriteBottomLine("By Netham45");
+	screenClearIn(2);
 
 	while (1) {
-		uint16_t buttons = pollSNES(); //Query SNES controller
+		uint16_t buttons = snesPoll(); //Query SNES controller
 
 		//If processMenu returns non-zero then the menu is open and don't process anything else this loop.
-		if (processMenu(buttons))
+		if (menuProcess(buttons))
 			continue;
 
-		processRebinds(&buttons);
-		processScreen(buttons);
-		processButtons(buttons);
+		bindProcess(&buttons);
+		screenProcess(buttons);
+		buttonsProcess(buttons);
 	}
 }

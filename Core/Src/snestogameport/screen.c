@@ -1,4 +1,6 @@
 #include <snestogameport/screen.h>
+#include <snestogameport/buttons.h>
+#include <snestogameport/lcd_hd44780_i2c.h>
 /* Screen interface */
 uint32_t clearMessageInTime = 0;
 uint8_t screenShowNormalInput = 0;
@@ -6,7 +8,7 @@ uint8_t screenShowNormalInput = 0;
 char topLine[17];
 char bottomLine[17];
 
-void clearMessage() {
+void screenClear() {
 	lcdSetCursorPosition(0, 0);
 	lcdPrintStr((uint8_t*) "                ", 16);
 	lcdSetCursorPosition(0, 1);
@@ -17,15 +19,15 @@ void clearMessage() {
 	//Update screens
 }
 
-void clearMessageIn(uint8_t seconds) {
+void screenClearIn(uint8_t seconds) {
 	clearMessageInTime = HAL_GetTick() + (seconds * 1000);
 }
 
-void clearClearMessage() {
+void screenResetClearTimer() {
 	clearMessageInTime = 0;
 }
 
-uint32_t clearMessageTime() {
+uint32_t screenGetClearMessageTime() {
 	return clearMessageInTime;
 }
 
@@ -37,7 +39,7 @@ void screenSetShowNormalInput(uint8_t show) {
 	screenShowNormalInput = show;
 }
 
-void writeTopLine(char *data)
+void screenWriteTopLine(char *data)
 
 {
 	if (strcmp(topLine, data) != 0) {
@@ -51,7 +53,7 @@ void writeTopLine(char *data)
 
 }
 
-void writeBottomLine(char *data) {
+void screenWriteBottomLine(char *data) {
 	if (strcmp(bottomLine, data) != 0) {
 		strcpy(bottomLine, data);
 		lcdBacklight(LCD_BIT_BACKIGHT_ON);
@@ -62,64 +64,9 @@ void writeBottomLine(char *data) {
 	}
 }
 
-void buttonToString(char *stringBuffer, uint16_t buttons, char *prefix) {
-	char buffer[32] = { 0 };
-	strcpy(buffer, prefix);
-	uint8_t offset = strlen(buffer);
-	uint8_t written = 0;
-	for (int i = 0; i < 12; i++) {
-		if (buttons & (1 << i)) {
-			written = 1;
-			switch (i) {
-			case 8:
-				sprintf(buffer + offset, "A+");
-				break;
-			case 0:
-				sprintf(buffer + offset, "B+");
-				break;
-			case 9:
-				sprintf(buffer + offset, "X+");
-				break;
-			case 1:
-				sprintf(buffer + offset, "Y+");
-				break;
-			case 4:
-				sprintf(buffer + offset, "Up+");
-				break;
-			case 5:
-				sprintf(buffer + offset, "Down+");
-				break;
-			case 6:
-				sprintf(buffer + offset, "Left+");
-				break;
-			case 7:
-				sprintf(buffer + offset, "Right+");
-				break;
-			case 10:
-				sprintf(buffer + offset, "L+");
-				break;
-			case 11:
-				sprintf(buffer + offset, "R+");
-				break;
-			case 3:
-				sprintf(buffer + offset, "Start+");
-				break;
-			case 2:
-				sprintf(buffer + offset, "Select+");
-				break;
-			}
-			offset += strlen(buffer + offset);
-		}
-	}
-	if (written)
-		buffer[strlen(buffer) - 1] = 0; //Remove the final plus
-	buffer[16] = 0; //Cap length at 16 chars
-	memcpy(stringBuffer, buffer, 17); //Copy 16 chars + terminator
-}
-
-void processScreen(uint16_t buttons) {
+void screenProcess(uint16_t buttons) {
 	if (clearMessageInTime && (clearMessageInTime < HAL_GetTick())) {
-		clearMessage();
+		screenClear();
 		clearMessageInTime = 0;
 	}
 
@@ -128,11 +75,11 @@ void processScreen(uint16_t buttons) {
 		if (!clearMessageInTime) {
 			if (buttons) {
 				char buffer[17];
-				buttonToString(buffer, buttons, "\xA5");
-				writeTopLine(buffer);
-				writeBottomLine("");
+				buttonsToString(buffer, buttons, "\xA5");
+				screenWriteTopLine(buffer);
+				screenWriteBottomLine("");
 			} else {
-				clearMessage();
+				screenClear();
 			}
 		}
 	}
