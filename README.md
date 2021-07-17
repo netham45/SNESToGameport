@@ -32,6 +32,10 @@ Gameport Wiring:
 	14 - Button 4      - PB14    
 	15 - 5v            - See Axis Schematic    
 ```
+
+Note: My gameport puts out closer to 2v, but the spec calls for 5v. I wasn't able to power the STM32 from my gameport.
+
+
 STM32 wiring:    
 ```
     X1 Center  - PB0    
