@@ -1,9 +1,9 @@
 #include <snestogameport/menu.h>
 
-uint8_t menuEntries = 0;
+uint8_t menuNumEntries = 0;
 uint8_t menuActive = 0;
 
-void *submenu = 0; //Pointer to submenu callback, 0 if not in a submenu
+void *menuActiveSubmenuCallback = 0; //Pointer to submenu callback, 0 if not in a submenu
 //void (uint16_t buttons, uint32_t buttonHoldTime, uint8_t buttonsChanged, uint8_t firstRun)
 //buttons == held buttons
 //buttonHoldTime == length buttons have been held in ms
@@ -15,10 +15,10 @@ uint16_t menuLastButtonsPressed = 0;
 
 //Registers a menu entry's name, help message, and callback function
 void initMenuEntry(char *name, char *help, void *callback) {
-	strcpy(menuItems[menuEntries].name, name);
-	strcpy(menuItems[menuEntries].help, help);
-	menuItems[menuEntries].callback = callback;
-	menuEntries++;
+	strcpy(menuItems[menuNumEntries].name, name);
+	strcpy(menuItems[menuNumEntries].help, help);
+	menuItems[menuNumEntries].callback = callback;
+	menuNumEntries++;
 }
 
 //Hide menu, clearMessage to clear the screen immediately, otherwise leave the screen alone
@@ -26,20 +26,21 @@ void deactivateMenu(uint8_t _clearMessage) {
 	menuActive = 0;
 	if (_clearMessage)
 		clearMessage();
-	submenu = 0;
+	menuActiveSubmenuCallback = 0;
 }
 
 //Show the menu
 void activateMenu() {
 	menuActive = 1;
+	menuActiveSubmenuCallback = 0;
 }
 
 //Main Menu variables
 uint8_t mainMenuTopSelected = 1;
 uint8_t mainMenuSubmenuFirstRun = 0;
-int mainMenuHelpPos = 0;
+int mainMenuHelpIndex = 0;
 uint32_t mainMenuHelpLastTick = 0;
-uint8_t mainMenuMenuPos = 0;
+uint8_t mainMenuCurrentMenuIndex = 0;
 
 //Main Menu
 int processMenu(uint16_t buttons) {
@@ -66,10 +67,10 @@ int processMenu(uint16_t buttons) {
 
 	clearClearMessage(); //Clear any timers to turn the screen off
 
-	if (submenu) //Call a submenu
+	if (menuActiveSubmenuCallback) //Call a submenu
 	{
 		void (*callback)(uint16_t buttons, uint32_t buttonsHoldTime,
-				uint8_t buttonsChanged, uint8_t firstRun) = submenu;
+				uint8_t buttonsChanged, uint8_t firstRun) = menuActiveSubmenuCallback;
 		callback(buttons, buttonsHoldTime, buttonsChanged,
 				mainMenuSubmenuFirstRun);
 		mainMenuSubmenuFirstRun = 0;
@@ -77,24 +78,24 @@ int processMenu(uint16_t buttons) {
 	{
 
 		//Render menu
-		if (mainMenuMenuPos == 0)
+		if (mainMenuCurrentMenuIndex == 0)
 			mainMenuTopSelected = 1; //Top entry means top is selected
-		if (mainMenuMenuPos == menuEntries - 1)
+		if (mainMenuCurrentMenuIndex == menuNumEntries - 1)
 			mainMenuTopSelected = 0; //Bottom entry means bottom is selected
 
-		uint8_t otherOptionPosition = mainMenuMenuPos
+		uint8_t otherOptionPosition = mainMenuCurrentMenuIndex
 				+ (mainMenuTopSelected ? 1 : -1);
-		struct menuEntry *currentOption = &menuItems[mainMenuMenuPos];
+		struct menuEntry *currentOption = &menuItems[mainMenuCurrentMenuIndex];
 		struct menuEntry *otherOption = &menuItems[otherOptionPosition];
 
 		char currentOptionBuffer[17]; //Current menu entry pointed to by menuPos
-		char otherOptionBuffer[17]; //Also holds help messages
+		char otherLineBuffer[17]; //Also holds help messages
 
 		sprintf(currentOptionBuffer, ">%s", currentOption->name);
 
 		if (buttonsHoldTime > 2000 && buttons == 0) //Show Help
 				{
-			memset(otherOptionBuffer, 0x20, sizeof(otherOptionBuffer));
+			memset(otherLineBuffer, 0x20, sizeof(otherLineBuffer));
 
 			if (!mainMenuHelpLastTick)
 				mainMenuHelpLastTick = HAL_GetTick();
@@ -103,31 +104,31 @@ int processMenu(uint16_t buttons) {
 			if (helpLastScrolled > 350) //Tick help another char every 350ms, it's slow but any faster the LCD blurs
 					{
 				mainMenuHelpLastTick = HAL_GetTick();
-				mainMenuHelpPos += 1;
-				if (mainMenuHelpPos > strlen(currentOption->help))
-					mainMenuHelpPos = -16;
+				mainMenuHelpIndex += 1;
+				if (mainMenuHelpIndex > strlen(currentOption->help))
+					mainMenuHelpIndex = -16;
 			}
 
-			if (mainMenuHelpPos < 0) //If it's negative it means it's scrolling in
+			if (mainMenuHelpIndex < 0) //If it's negative it means it's scrolling in
 					{
-				memset(otherOptionBuffer, 0x20, 0 - mainMenuHelpPos);
-				memcpy(otherOptionBuffer + (0 - mainMenuHelpPos),
-						currentOption->help, 16 + mainMenuHelpPos);
+				memset(otherLineBuffer, 0x20, 0 - mainMenuHelpIndex);
+				memcpy(otherLineBuffer + (0 - mainMenuHelpIndex),
+						currentOption->help, 16 + mainMenuHelpIndex);
 			} else
-				memcpy(otherOptionBuffer, currentOption->help + mainMenuHelpPos,
+				memcpy(otherLineBuffer, currentOption->help + mainMenuHelpIndex,
 						16);
-			otherOptionBuffer[16] = 0;
+			otherLineBuffer[16] = 0;
 		} else //Show the other option
 		{
-			strcpy(otherOptionBuffer, otherOption->name);
-			mainMenuHelpPos = 0;
+			strcpy(otherLineBuffer, otherOption->name);
+			mainMenuHelpIndex = 0;
 		}
 
 		if (mainMenuTopSelected) {
 			writeTopLine(currentOptionBuffer);
-			writeBottomLine(otherOptionBuffer);
+			writeBottomLine(otherLineBuffer);
 		} else {
-			writeTopLine(otherOptionBuffer);
+			writeTopLine(otherLineBuffer);
 			writeBottomLine(currentOptionBuffer);
 		}
 
@@ -137,19 +138,19 @@ int processMenu(uint16_t buttons) {
 		if (buttonsChanged) {
 			if (buttons & BUTTON_UP) //Scroll up menu
 			{
-				if (mainMenuMenuPos > 0) {
-					mainMenuMenuPos--;
+				if (mainMenuCurrentMenuIndex > 0) {
+					mainMenuCurrentMenuIndex--;
 					mainMenuTopSelected = 1;
 				}
 			} else if (buttons & BUTTON_DOWN) //Scroll down menu
 			{
-				if (mainMenuMenuPos < menuEntries - 1) {
-					mainMenuMenuPos++;
+				if (mainMenuCurrentMenuIndex < menuNumEntries - 1) {
+					mainMenuCurrentMenuIndex++;
 					mainMenuTopSelected = 0;
 				}
 			} else if (buttons & BUTTON_A) //Select an option
 			{
-				submenu = menuItems[mainMenuMenuPos].callback;
+				menuActiveSubmenuCallback = menuItems[mainMenuCurrentMenuIndex].callback;
 				mainMenuSubmenuFirstRun = 1;
 			} else if (buttons & BUTTON_B) //Close menu
 			{
@@ -220,14 +221,14 @@ void menuRebindKeys(uint16_t buttons, uint32_t buttonHoldTime,
 }
 
 //View binds/set rapid fire
-uint8_t menuViewEditBindsPos = 0;
+uint8_t menuViewEditBindsIndex = 0;
 uint8_t menuViewEditBindsCyclingRapidFire = 0;
 
 void menuViewEditBinds(uint16_t buttons, uint32_t buttonHoldTime,
 		uint8_t buttonsChanged, uint8_t firstRun) {
 	if (firstRun) {
-		menuViewEditBindsPos = 0;
-		struct rebindEntry *bind = &rebind[menuViewEditBindsPos];
+		menuViewEditBindsIndex = 0;
+		struct rebindEntry *bind = &currentProfile[menuViewEditBindsIndex];
 		if (bind->buttonsPressed == 65535 || bind->buttonsPressed == 0) //There's no binds
 				{
 			writeTopLine("No binds to");
@@ -239,7 +240,7 @@ void menuViewEditBinds(uint16_t buttons, uint32_t buttonHoldTime,
 	}
 
 	//Render
-	struct rebindEntry *bind = &rebind[menuViewEditBindsPos];
+	struct rebindEntry *bind = &currentProfile[menuViewEditBindsIndex];
 	char message[17];
 	char message2[17];
 	if (!menuViewEditBindsCyclingRapidFire) //If not showing rapid fire
@@ -264,17 +265,17 @@ void menuViewEditBinds(uint16_t buttons, uint32_t buttonHoldTime,
 	if (buttonsChanged) {
 		if (buttons & BUTTON_UP) //Scroll up
 		{
-			if (menuViewEditBindsPos > 0)
-				menuViewEditBindsPos--;
+			if (menuViewEditBindsIndex > 0)
+				menuViewEditBindsIndex--;
 		} else if (buttons & BUTTON_DOWN) //Scroll down
 		{
-			if (menuViewEditBindsPos < getBindCount() - 1) {
-				menuViewEditBindsPos++;
+			if (menuViewEditBindsIndex < getBindCount() - 1) {
+				menuViewEditBindsIndex++;
 			}
 		} else if (buttons & BUTTON_SELECT) //Cycle rapid fire
 		{
 			menuViewEditBindsCyclingRapidFire = 1;
-			cycleRapidFire(&rebind[menuViewEditBindsPos]);
+			cycleRapidFire(&currentProfile[menuViewEditBindsIndex]);
 		} else if (buttons & BUTTON_B) //Close
 		{
 			deactivateMenu(1);
@@ -306,29 +307,29 @@ void menuClearKeybinds(uint16_t buttons, uint32_t buttonHoldTime,
 }
 
 //Loads a profile from flash
-uint16_t menuSelectProfileSelectedProfile = 0;
+uint16_t menuSelectProfileSelectedProfileIndex = 0;
 void menuSelectProfile(uint16_t buttons, uint32_t buttonHoldTime,
 		uint8_t buttonsChanged, uint8_t firstRun) {
 	//Render
 	char message[17];
 	char message2[17];
-	sprintf(message, "New Profile: %i", menuSelectProfileSelectedProfile + 1);
-	sprintf(message2, "Cur Profile: %i", getSelectedProfile() + 1);
+	sprintf(message, "New Profile: %i", menuSelectProfileSelectedProfileIndex + 1);
+	sprintf(message2, "Cur Profile: %i", getSelectedProfileIndex() + 1);
 	writeTopLine(message);
 	writeBottomLine(message2);
 
 	//Process Buttons
 	if (buttonsChanged) {
-		if (buttons & BUTTON_UP && menuSelectProfileSelectedProfile > 0) //Scroll Up through profiles
+		if (buttons & BUTTON_UP && menuSelectProfileSelectedProfileIndex > 0) //Scroll Up through profiles
 				{
-			menuSelectProfileSelectedProfile--;
+			menuSelectProfileSelectedProfileIndex--;
 		} else if (buttons & BUTTON_DOWN
-				&& menuSelectProfileSelectedProfile < PROFILE_COUNT - 1) //Scroll down
+				&& menuSelectProfileSelectedProfileIndex < PROFILE_COUNT - 1) //Scroll down
 						{
-			menuSelectProfileSelectedProfile++;
+			menuSelectProfileSelectedProfileIndex++;
 		} else if (buttons & BUTTON_A) //Select
 		{
-			selectProfile(menuSelectProfileSelectedProfile);
+			selectProfile(menuSelectProfileSelectedProfileIndex);
 			deactivateMenu(0);
 			clearMessageIn(2);
 		} else if (buttons & BUTTON_B) //Cancel
@@ -340,29 +341,29 @@ void menuSelectProfile(uint16_t buttons, uint32_t buttonHoldTime,
 }
 
 //Save a profile to a slot
-uint16_t menuSaveProfileSelectedProfile = 0;
+uint16_t menuSaveProfileSelectedProfileIndex = 0;
 void menuSaveProfile(uint16_t buttons, uint32_t buttonHoldTime,
 		uint8_t buttonsChanged, uint8_t firstRun) {
 	//Render
 	char message[17];
 	char message2[17];
-	sprintf(message, "Save Profile: %i", menuSaveProfileSelectedProfile + 1);
-	sprintf(message2, "Cur Profile: %i", getSelectedProfile() + 1);
+	sprintf(message, "Save Profile: %i", menuSaveProfileSelectedProfileIndex + 1);
+	sprintf(message2, "Cur Profile: %i", getSelectedProfileIndex() + 1);
 	writeTopLine(message);
 	writeBottomLine(message2);
 
 	//Process Buttons
 	if (buttonsChanged) {
-		if (buttons & BUTTON_UP && menuSaveProfileSelectedProfile > 0) //Scroll up
+		if (buttons & BUTTON_UP && menuSaveProfileSelectedProfileIndex > 0) //Scroll up
 				{
-			menuSaveProfileSelectedProfile--;
+			menuSaveProfileSelectedProfileIndex--;
 		} else if (buttons & BUTTON_DOWN
-				&& menuSaveProfileSelectedProfile < PROFILE_COUNT - 1) //Scroll down
+				&& menuSaveProfileSelectedProfileIndex < PROFILE_COUNT - 1) //Scroll down
 						{
-			menuSaveProfileSelectedProfile++;
+			menuSaveProfileSelectedProfileIndex++;
 		} else if (buttons & BUTTON_A) //Select
 		{
-			saveProfileNum(menuSaveProfileSelectedProfile);
+			saveProfileNum(menuSaveProfileSelectedProfileIndex);
 			deactivateMenu(0);
 			clearMessageIn(2);
 		} else if (buttons & BUTTON_B) //Cancel

@@ -1,37 +1,48 @@
 #include <snestogameport/buttons.h>
 
-uint32_t data[PROFILE_SIZE * PROFILE_COUNT];
-uint8_t selectedProfile = 0;
+uint32_t data[DATA_INIT_SIZE];
+uint8_t currentProfileIndex = 0;
 
-void saveProfileNum(uint8_t newProfileNumber) {
-	if (newProfileNumber != selectedProfile) //If we're saving to a new profile
+struct rebindEntry* getDataProfileOffset(uint8_t profileIndex) //RW
+{
+	return (struct rebindEntry*)data + (PROFILE_SIZE * profileIndex);
+}
+
+struct rebindEntry* getFlashProfileOffset(uint8_t profileIndex) //RO
+{
+	 return (struct rebindEntry*)Flash_ReadData() + (PROFILE_SIZE * profileIndex);
+}
+
+
+void saveProfileNum(uint8_t newProfileIndex) {
+	if (newProfileIndex != currentProfileIndex) //If we're saving to a new profile
 			{
-		struct rebindEntry *newProfile = (struct rebindEntry*) (data
-				+ (PROFILE_SIZE * newProfileNumber)); //Pointer to new profile
-		memcpy(newProfile, rebind, PROFILE_SIZE); //Save current profile to new slot
-		memcpy(rebind, Flash_ReadData() + (PROFILE_SIZE * selectedProfile),
+		struct rebindEntry *newProfile = getDataProfileOffset(newProfileIndex); //Pointer to new profile
+		memcpy(newProfile, currentProfile, PROFILE_SIZE); //Save current profile to new slot
+		memcpy(currentProfile,getFlashProfileOffset(currentProfileIndex),
 				PROFILE_SIZE); //Reload current profile from flash so it isn't overwritten
-		rebind = newProfile; //Point rebind to the new profile
-		selectedProfile = newProfileNumber; //Update selected profile number
+		currentProfile = newProfile; //Point rebind to the new profile
+		currentProfileIndex = newProfileIndex; //Update selected profile number
 	}
+
 	Flash_WriteData(data, sizeof(data)); //Save profile
 }
 
 void selectProfile(uint8_t profile) {
 	//Load profile from flash
-	memcpy(data, Flash_ReadData(), sizeof(data)); //Copy data in from flash, this discards any changes
-	selectedProfile = profile;
-	rebind = (struct rebindEntry*) (data + (PROFILE_SIZE * selectedProfile));
+	memcpy(getDataProfileOffset(profile), getFlashProfileOffset(currentProfileIndex), PROFILE_SIZE); //Copy data for this profile in from flash, this discards any changes
+	currentProfileIndex = profile;
+	currentProfile = getDataProfileOffset(currentProfileIndex);
 }
 
-uint8_t getSelectedProfile() {
-	return selectedProfile;
+uint8_t getSelectedProfileIndex() {
+	return currentProfileIndex;
 }
 
 uint8_t getBindCount() {
 	int i = 0;
 	for (i = 0; i < REBIND_COUNT; i++)
-		if (rebind[i].buttonsPressed == 0 || rebind[i].buttonsPressed == 65535)
+		if (currentProfile[i].buttonsPressed == 0 || currentProfile[i].buttonsPressed == 65535)
 			break;
 	return i;
 }
@@ -40,18 +51,18 @@ void bindKey(uint16_t buttonsPressed, uint16_t buttonsToPress,
 		uint8_t rapidFire) {
 	uint8_t rebindPos = 0;
 	for (rebindPos = 0; rebindPos < getBindCount(); rebindPos++)
-		if (rebind[rebindPos].buttonsPressed == buttonsPressed)
+		if (currentProfile[rebindPos].buttonsPressed == buttonsPressed)
 			break;
-	rebind[rebindPos].buttonsPressed = buttonsPressed;
-	rebind[rebindPos].buttonsToPress = buttonsToPress;
-	rebind[rebindPos].rapidFire = rapidFire;
+	currentProfile[rebindPos].buttonsPressed = buttonsPressed;
+	currentProfile[rebindPos].buttonsToPress = buttonsToPress;
+	currentProfile[rebindPos].rapidFire = rapidFire;
 }
 
 void clearBinds() {
 	for (int i = 0; i < REBIND_COUNT; i++) {
-		rebind[i].buttonsPressed = 65535;
-		rebind[i].buttonsToPress = 65535;
-		rebind[i].rapidFire = 255;
+		currentProfile[i].buttonsPressed = 65535;
+		currentProfile[i].buttonsToPress = 65535;
+		currentProfile[i].rapidFire = 255;
 	}
 }
 
@@ -87,22 +98,22 @@ void processRebinds(uint16_t *buttons) {
 	uint16_t bindButtonsToPress = 0;
 
 	for (int i = 0; i < REBIND_COUNT; i++) {
-		if (rebind[i].buttonsPressed == 0 || rebind[i].buttonsPressed == 65535) //Bail at the first empty entry
+		if (currentProfile[i].buttonsPressed == 0 || currentProfile[i].buttonsPressed == 65535) //Bail at the first empty entry
 				{
 			break;
 		}
 
-		if ((realButtons & rebind[i].buttonsPressed)
-				== rebind[i].buttonsPressed) {
-			*buttons = *buttons ^ rebind[i].buttonsPressed; //Remove the pressed buttons from buttons
-			if (rebind[i].rapidFire != 0) {
+		if ((realButtons & currentProfile[i].buttonsPressed)
+				== currentProfile[i].buttonsPressed) {
+			*buttons = *buttons ^ currentProfile[i].buttonsPressed; //Remove the pressed buttons from buttons
+			if (currentProfile[i].rapidFire != 0) {
 				uint32_t ticks = HAL_GetTick()
-						/ (RAPID_FIRE_BASE_TIME * rebind[i].rapidFire);
+						/ (RAPID_FIRE_BASE_TIME * currentProfile[i].rapidFire);
 				if ((ticks % 2) == 1) {
-					bindButtonsToPress |= rebind[i].buttonsToPress; //Store the buttons to press in another variable so they don't get cleared by other binds
+					bindButtonsToPress |= currentProfile[i].buttonsToPress; //Store the buttons to press in another variable so they don't get cleared by other binds
 				}
 			} else {
-				bindButtonsToPress |= rebind[i].buttonsToPress; //Store the buttons to press in another variable so they don't get cleared by other binds
+				bindButtonsToPress |= currentProfile[i].buttonsToPress; //Store the buttons to press in another variable so they don't get cleared by other binds
 			}
 		}
 	}
