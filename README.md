@@ -9,7 +9,7 @@ SNES wiring:
     Data - PA6    
 
 Gameport Axis Schematic:    
-    [![Axis Schematic](https://github.com/netham45/SNESToGameport/blob/main/axis_schematic.png?raw=true)]
+    ![Axis Schematic](https://github.com/netham45/SNESToGameport/blob/main/axis_schematic.png?raw=true)
      
 
 Gameport wiring:    
