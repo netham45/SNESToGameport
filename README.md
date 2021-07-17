@@ -18,17 +18,17 @@ Gameport Wiring:
     Pin No - Description   - Connect To    
 	 1 - 5v            - See Axis Schematic    
 	 2 - Button 1      - PB10    
-	 3 - Joy 1 X Axis  - X1 Out - See Gameport Axis Schematic    
+	 3 - Joy 1 X Axis  - X1 Out - See Axis Schematic    
 	 4 - Ground        - Tie one ground to STM32 Ground    
 	 5 - Ground        - Tie one ground to STM32 Ground    
-	 6 - Joy 1 Y Axis  - Y1 Out - See Gameport Axis Schematic    
+	 6 - Joy 1 Y Axis  - Y1 Out - See Axis Schematic    
 	 7 - Button 2      - PB12    
 	 8 - 5v            - See Axis Schematic    
 	 9 - 5v            - See Axis Schematic    
 	10 - Button 3      - PB13    
-	11 - Joy 2 X Axis  - X2 Out - See Gameport Axis Schematic    
+	11 - Joy 2 X Axis  - X2 Out - See Axis Schematic    
 	12 - Midi Out      - Disconnected    
-	13 - Joy 2 Y Axis  - Y2 Out - See Gameport Axis Schematic    
+	13 - Joy 2 Y Axis  - Y2 Out - See Axis Schematic    
 	14 - Button 4      - PB14    
 	15 - 5v            - See Axis Schematic    
 ```
