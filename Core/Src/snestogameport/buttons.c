@@ -6,7 +6,8 @@ uint8_t currentProfileIndex = 0;
 
 struct rebindEntry* getDataProfileOffset(uint8_t profileIndex) //RW
 {
-	return (struct rebindEntry*)data + (PROFILE_SIZE * profileIndex);
+	struct rebindEntry* retVal = (struct rebindEntry*)data + ((PROFILE_SIZE * profileIndex)/2);
+	return retVal;
 }
 
 

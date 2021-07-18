@@ -13,8 +13,10 @@ uint16_t VarValue = 0;
 
 void snesMain(I2C_HandleTypeDef *hi2c, TIM_HandleTypeDef *htimdelayus) {
 
+	HAL_FLASH_Unlock();
 	uint32_t status = EE_Init(); //eeprom init
 	status++;
+	HAL_FLASH_Lock();
 	snesSetDelayuSTimer(htimdelayus); //Init delayuS timer for snes controller polling
 	lcdInit(hi2c, (uint8_t) 0x27, (uint8_t) 20, (uint8_t) 4); //Init LCD
 	buttonsGPIODefaultState(); //Init GPIO
