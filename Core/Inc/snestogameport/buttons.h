@@ -16,11 +16,11 @@
 #define BUTTON_SELECT (1<<2)
 
 #define REBIND_COUNT 128
-#define PROFILE_COUNT 16 //REBIND_COUNT * PROFILE_COUNT needs to be divisible by 4
+#define PROFILE_COUNT 16 //REBIND_COUNT * PROFILE_COUNT needs to be divisible by 2
 #define RAPID_FIRE_BASE_TIME 150 //ms
 #define PROFILE_SIZE ( sizeof(struct rebindEntry) * REBIND_COUNT )
 #define DATA_SIZE (PROFILE_SIZE * PROFILE_COUNT)
-#define DATA_INIT_SIZE (DATA_SIZE / 4)
+#define DATA_INIT_SIZE (DATA_SIZE / 2)
 
 struct rebindEntry {
 	uint16_t buttonsPressed;

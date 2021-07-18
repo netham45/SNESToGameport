@@ -1,7 +1,7 @@
 #include <snestogameport/buttons.h>
 #include <snestogameport/flash.h>
 
-uint32_t data[DATA_INIT_SIZE];
+uint16_t data[DATA_INIT_SIZE];
 uint8_t currentProfileIndex = 0;
 
 struct rebindEntry* getDataProfileOffset(uint8_t profileIndex) //RW
@@ -9,10 +9,6 @@ struct rebindEntry* getDataProfileOffset(uint8_t profileIndex) //RW
 	return (struct rebindEntry*)data + (PROFILE_SIZE * profileIndex);
 }
 
-struct rebindEntry* getFlashProfileOffset(uint8_t profileIndex) //RO
-{
-	 return (struct rebindEntry*)flashReadData() + (PROFILE_SIZE * profileIndex);
-}
 
 
 void profileSave(uint8_t newProfileIndex) {
@@ -20,18 +16,16 @@ void profileSave(uint8_t newProfileIndex) {
 			{
 		struct rebindEntry *newProfile = getDataProfileOffset(newProfileIndex); //Pointer to new profile
 		memcpy(newProfile, currentProfile, PROFILE_SIZE); //Save current profile to new slot
-		memcpy(currentProfile,getFlashProfileOffset(currentProfileIndex),
-				PROFILE_SIZE); //Reload current profile from flash so it isn't overwritten on save
+		flashReadData((uint16_t*)currentProfile,PROFILE_SIZE,(PROFILE_SIZE * currentProfileIndex));//Reload current profile from flash so it isn't overwritten on save
 		currentProfile = newProfile; //Point rebind to the new profile
 		currentProfileIndex = newProfileIndex; //Update selected profile number
 	}
-
-	flashWriteData(data, sizeof(data)); //Save profile
+	flashWriteData((uint16_t*)currentProfile,PROFILE_SIZE,(PROFILE_SIZE * currentProfileIndex)); //Save profile
 }
 
 void profileSelect(uint8_t newProfileIndex) {
 	//Load profile from flash
-	memcpy(getDataProfileOffset(newProfileIndex), getFlashProfileOffset(newProfileIndex), PROFILE_SIZE); //Copy data for this profile in from flash, this discards any changes
+	flashReadData((uint16_t*)getDataProfileOffset(newProfileIndex),PROFILE_SIZE,(PROFILE_SIZE * newProfileIndex)); //Copy data for this profile in from flash, this discards any changes
 	currentProfileIndex = newProfileIndex;
 	currentProfile = getDataProfileOffset(currentProfileIndex);
 }

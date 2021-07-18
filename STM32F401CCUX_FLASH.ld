@@ -37,7 +37,9 @@ _Min_Stack_Size = 0x400 ;	/* required amount of stack */
 MEMORY
 {
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 64K
-  FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 256K
+  FLASH_BOOT (rx) : ORIGIN = 0x8000000,    LENGTH = 32K
+  EMULATED_EEPROM (xrw)   : ORIGIN = ORIGIN(FLASH_BOOT) + LENGTH(FLASH_BOOT),LENGTH = 2*16k
+  FLASH (rx)              : ORIGIN = ORIGIN(EMULATED_EEPROM) + LENGTH(EMULATED_EEPROM),LENGTH = 256k - LENGTH(FLASH_BOOT) - LENGTH(EMULATED_EEPROM)
 }
 
 /* Sections */
@@ -49,7 +51,7 @@ SECTIONS
     . = ALIGN(4);
     KEEP(*(.isr_vector)) /* Startup code */
     . = ALIGN(4);
-  } >FLASH
+  } >FLASH_BOOT
 
   /* The program code and other data into "FLASH" Rom type memory */
   .text :

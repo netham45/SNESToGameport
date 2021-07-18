@@ -550,52 +550,31 @@ uint32_t HAL_FLASH_GetError(void)
   * @retval HAL Status
   */
 HAL_StatusTypeDef FLASH_WaitForLastOperation(uint32_t Timeout)
-{ 
-  uint32_t tickstart = 0U;
-  
-  /* Clear Error Code */
-  pFlash.ErrorCode = HAL_FLASH_ERROR_NONE;
-  
-  /* Wait for the FLASH operation to complete by polling on BUSY flag to be reset.
-     Even if the FLASH operation fails, the BUSY flag will be reset and an error
-     flag will be set */
-  /* Get tick */
-  tickstart = HAL_GetTick();
+{
+	 uint32_t timeout = HAL_GetTick();
+	 while(__HAL_FLASH_GET_FLAG(FLASH_FLAG_BSY))
+	 {
+		 if(Timeout != HAL_MAX_DELAY)
+		 {
+			 if(HAL_GetTick()-timeout >= Timeout)
+			 {
+				 return HAL_TIMEOUT;
+			 }
+		 }
+	 }
+	 /* Check FLASH End of Operation flag */
 
-  while(__HAL_FLASH_GET_FLAG(FLASH_FLAG_BSY) != RESET) 
-  { 
-    if(Timeout != HAL_MAX_DELAY)
-    {
-      if((Timeout == 0U)||((HAL_GetTick() - tickstart ) > Timeout))
-      {
-        return HAL_TIMEOUT;
-      }
-    } 
-  }
 
-  /* Check FLASH End of Operation flag  */
-  if (__HAL_FLASH_GET_FLAG(FLASH_FLAG_EOP) != RESET)
-  {
-    /* Clear FLASH End of Operation pending bit */
-    __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_EOP);
-  }
-#if defined(FLASH_SR_RDERR)  
-  if(__HAL_FLASH_GET_FLAG((FLASH_FLAG_OPERR | FLASH_FLAG_WRPERR | FLASH_FLAG_PGAERR | \
-                           FLASH_FLAG_PGPERR | FLASH_FLAG_PGSERR | FLASH_FLAG_RDERR)) != RESET)
-#else
-  if(__HAL_FLASH_GET_FLAG((FLASH_FLAG_OPERR | FLASH_FLAG_WRPERR | FLASH_FLAG_PGAERR | \
-                           FLASH_FLAG_PGPERR | FLASH_FLAG_PGSERR)) != RESET)
-#endif /* FLASH_SR_RDERR */
-  {
-    /*Save the error code*/
-    FLASH_SetErrorCode();
-    return HAL_ERROR;
-  }
+	 if (__HAL_FLASH_GET_FLAG(FLASH_FLAG_EOP))
+	 {
+		 /* Clear FLASH End of Operation pending bit */
+		 __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_EOP);
+	 }
 
-  /* If there is no error flag set */
-  return HAL_OK;
-  
-}  
+	 /* There is no error flag set */
+
+	 return HAL_OK;
+}
 
 /**
   * @brief  Program a double word (64-bit) at a specified address.

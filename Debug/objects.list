@@ -7,6 +7,7 @@
 "Core/Src/sysmem.o"
 "Core/Src/system_stm32f4xx.o"
 "Core/Src/snestogameport/buttons.o"
+"Core/Src/snestogameport/eeprom.o"
 "Core/Src/snestogameport/flash.o"
 "Core/Src/snestogameport/lcd_hd44780_i2c.o"
 "Core/Src/snestogameport/menu.o"
