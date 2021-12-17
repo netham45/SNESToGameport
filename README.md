@@ -2,6 +2,8 @@
 
 Converts an SNES controller to a Gameport.
 
+[![Demo video](https://img.youtube.com/vi/a8n7kOmYA-A/0.jpg)](https://www.youtube.com/watch?v=a8n7kOmYA-A)
+
 SNES wiring:    
 ```
     Power - 3.3V    
